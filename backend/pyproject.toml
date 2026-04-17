@@ -1,0 +1,38 @@
+[project]
+name = "smartstep-backend"
+version = "0.1.0"
+description = "SmartStep Django API — content graph, rewards, telemetry."
+requires-python = ">=3.11"
+dependencies = [
+    "Django>=5.0,<5.2",
+    "djangorestframework>=3.15",
+    "djangorestframework-simplejwt>=5.3",
+    "django-cors-headers>=4.3",
+    "django-environ>=0.11",
+    "psycopg[binary]>=3.1",
+    "gunicorn>=21.2",
+    "whitenoise>=6.6",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0",
+    "pytest-django>=4.8",
+    "pytest-cov>=5.0",
+    "model-bakery>=1.17",
+    "ruff>=0.5",
+]
+
+[tool.pytest.ini_options]
+DJANGO_SETTINGS_MODULE = "smartstep.settings.dev"
+python_files = ["tests.py", "test_*.py", "*_tests.py"]
+addopts = "-ra --strict-markers"
+testpaths = ["content", "rewards", "notifications", "api"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "UP"]
+ignore = ["E501"]

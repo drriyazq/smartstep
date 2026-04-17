@@ -1,0 +1,50 @@
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: smartstep
+      POSTGRES_USER: smartstep
+      POSTGRES_PASSWORD: smartstep
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U smartstep"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    ports:
+      - "5432:5432"
+
+  api:
+    build:
+      context: ../backend
+      dockerfile: Dockerfile
+    environment:
+      DJANGO_SETTINGS_MODULE: smartstep.settings.dev
+      DJANGO_SECRET_KEY: dev-insecure-key
+      DJANGO_ALLOWED_HOSTS: "*"
+      DATABASE_URL: postgres://smartstep:smartstep@db:5432/smartstep
+      CORS_ALLOW_ALL_ORIGINS: "1"
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      - ../backend:/app
+    ports:
+      - "8000:8000"
+    command: >
+      sh -c "python manage.py makemigrations content rewards notifications --noinput &&
+             python manage.py migrate &&
+             python manage.py seed_demo &&
+             python -c \"
+import django, os
+os.environ.setdefault('DJANGO_SETTINGS_MODULE','smartstep.settings.dev')
+django.setup()
+from django.contrib.auth import get_user_model
+U = get_user_model()
+U.objects.filter(username='admin').exists() or U.objects.create_superuser('admin','admin@smartstep.local','admin')
+\" &&
+             python manage.py runserver 0.0.0.0:8000"
+
+volumes:
+  pgdata:

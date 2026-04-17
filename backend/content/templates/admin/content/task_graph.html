@@ -1,0 +1,23 @@
+{% extends "admin/base_site.html" %}
+
+{% block content %}
+<form method="get" style="margin-bottom:1em;">
+  <label>Filter by category:
+    <select name="category" onchange="this.form.submit()">
+      <option value="">— all —</option>
+      {% for value, label in categories %}
+        <option value="{{ value }}" {% if value == selected_category %}selected{% endif %}>{{ label }}</option>
+      {% endfor %}
+    </select>
+  </label>
+</form>
+
+<div class="mermaid">
+{{ mermaid }}
+</div>
+
+<script type="module">
+  import mermaid from "https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.esm.min.mjs";
+  mermaid.initialize({ startOnLoad: true, theme: "neutral" });
+</script>
+{% endblock %}
