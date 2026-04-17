@@ -13,8 +13,10 @@ env/
 .env.*
 !.env.example
 
-# uv
+# uv / setuptools
 .uv/
+*.egg-info/
+*.egg
 
 # Django
 *.log

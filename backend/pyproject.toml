@@ -23,6 +23,15 @@ dev = [
     "ruff>=0.5",
 ]
 
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+# This repo is a Django project, not a distributable library.
+# Declare no Python packages so pip only installs the dependencies above.
+py-modules = []
+
 [tool.pytest.ini_options]
 DJANGO_SETTINGS_MODULE = "smartstep.settings.dev"
 python_files = ["tests.py", "test_*.py", "*_tests.py"]
