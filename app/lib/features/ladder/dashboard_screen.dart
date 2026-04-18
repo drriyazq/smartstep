@@ -308,6 +308,20 @@ class _LadderListState extends State<_LadderList> {
     final doneCount = completedCount + satisfiedCount;
     final total = tasks.length + customTasks.length;
 
+    // Per-category stats (API tasks only, not custom)
+    final totalByCategory = <String, int>{};
+    for (final t in tasks) {
+      final cat = t.tags.isEmpty ? "other" : t.tags.first.category;
+      totalByCategory[cat] = (totalByCategory[cat] ?? 0) + 1;
+    }
+    final categoryStats = (totalByCategory.keys.toList()..sort())
+        .map((cat) => _CategoryStat(
+              category: cat,
+              done: doneByCategory[cat]?.length ?? 0,
+              total: totalByCategory[cat]!,
+            ))
+        .toList();
+
     return ListView(
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
       children: [
@@ -315,6 +329,7 @@ class _LadderListState extends State<_LadderList> {
           done: doneCount,
           completed: completedCount,
           total: total,
+          categoryStats: categoryStats,
         ),
         const SizedBox(height: 20),
 
@@ -432,18 +447,48 @@ class _LadderListState extends State<_LadderList> {
             ],
           ],
         ),
-        subtitle: Text(
-          row.isAboveAge && (row.state == LadderState.unlocked || row.state == LadderState.lockedWithWarning)
-              ? "Above their age — impressive!"
-              : _subtitle(row),
-          style: TextStyle(
-            fontSize: 12,
-            color: row.isAboveAge
-                ? Colors.amber.shade700
-                : row.state == LadderState.lockedWithWarning
-                    ? Colors.orange.shade700
-                    : null,
-          ),
+        subtitle: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              row.isAboveAge && (row.state == LadderState.unlocked || row.state == LadderState.lockedWithWarning)
+                  ? "Above their age — impressive!"
+                  : _subtitle(row),
+              style: TextStyle(
+                fontSize: 12,
+                color: row.isAboveAge
+                    ? Colors.amber.shade700
+                    : row.state == LadderState.lockedWithWarning
+                        ? Colors.orange.shade700
+                        : null,
+              ),
+            ),
+            const SizedBox(height: 4),
+            Row(
+              children: [
+                Icon(meta.icon, size: 11, color: meta.color.withOpacity(0.8)),
+                const SizedBox(width: 3),
+                Text(
+                  meta.label,
+                  style: TextStyle(
+                    fontSize: 11,
+                    color: meta.color.withOpacity(0.8),
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Icon(Icons.cake_outlined, size: 11, color: Colors.grey.shade500),
+                const SizedBox(width: 3),
+                Text(
+                  "Age ${row.task.minAge}–${row.task.maxAge}",
+                  style: TextStyle(
+                    fontSize: 11,
+                    color: Colors.grey.shade500,
+                  ),
+                ),
+              ],
+            ),
+          ],
         ),
         trailing: Icon(Icons.chevron_right, color: Colors.grey.shade400, size: 20),
         onTap: () => context.push("/task/${row.task.slug}"),
@@ -499,10 +544,12 @@ class _ProgressCard extends StatelessWidget {
     required this.done,
     required this.completed,
     required this.total,
+    required this.categoryStats,
   });
   final int done;
   final int completed;
   final int total;
+  final List<_CategoryStat> categoryStats;
 
   @override
   Widget build(BuildContext context) {
@@ -515,6 +562,7 @@ class _ProgressCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            // ── Overall ─────────────────────────────────────────
             Row(
               children: [
                 Icon(Icons.rocket_launch_outlined,
@@ -529,19 +577,18 @@ class _ProgressCard extends StatelessWidget {
                 ),
               ],
             ),
-            const SizedBox(height: 10),
+            const SizedBox(height: 8),
             ClipRRect(
               borderRadius: BorderRadius.circular(4),
               child: LinearProgressIndicator(
                 value: pct,
                 minHeight: 8,
-                backgroundColor:
-                    cs.onPrimaryContainer.withOpacity(0.15),
-                valueColor: AlwaysStoppedAnimation<Color>(
-                    cs.onPrimaryContainer),
+                backgroundColor: cs.onPrimaryContainer.withOpacity(0.15),
+                valueColor:
+                    AlwaysStoppedAnimation<Color>(cs.onPrimaryContainer),
               ),
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: 6),
             Text(
               completed > 0
                   ? "$completed completed · ${done - completed} already mastered"
@@ -550,8 +597,71 @@ class _ProgressCard extends StatelessWidget {
                     color: cs.onPrimaryContainer.withOpacity(0.8),
                   ),
             ),
+            // ── Per-category ─────────────────────────────────────
+            if (categoryStats.isNotEmpty) ...[
+              const SizedBox(height: 14),
+              const Divider(height: 1, color: Colors.white24),
+              const SizedBox(height: 12),
+              for (final stat in categoryStats)
+                _CategoryProgressRow(stat: stat, onPrimary: cs.onPrimaryContainer),
+            ],
           ],
         ),
+      ),
+    );
+  }
+}
+
+class _CategoryProgressRow extends StatelessWidget {
+  const _CategoryProgressRow({required this.stat, required this.onPrimary});
+  final _CategoryStat stat;
+  final Color onPrimary;
+
+  @override
+  Widget build(BuildContext context) {
+    final meta = _categoryMeta(stat.category);
+    final pct = stat.total == 0 ? 0.0 : stat.done / stat.total;
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: Row(
+        children: [
+          Icon(meta.icon, color: onPrimary.withOpacity(0.7), size: 14),
+          const SizedBox(width: 6),
+          SizedBox(
+            width: 72,
+            child: Text(
+              meta.label,
+              style: TextStyle(
+                fontSize: 12,
+                color: onPrimary.withOpacity(0.85),
+                fontWeight: FontWeight.w500,
+              ),
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(3),
+              child: LinearProgressIndicator(
+                value: pct,
+                minHeight: 6,
+                backgroundColor: onPrimary.withOpacity(0.15),
+                valueColor: AlwaysStoppedAnimation<Color>(
+                    onPrimary.withOpacity(0.75)),
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
+          Text(
+            "${stat.done}/${stat.total}",
+            style: TextStyle(
+              fontSize: 11,
+              color: onPrimary.withOpacity(0.75),
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -693,6 +803,13 @@ class _CustomCategoryHeader extends StatelessWidget {
       ],
     );
   }
+}
+
+class _CategoryStat {
+  const _CategoryStat({required this.category, required this.done, required this.total});
+  final String category;
+  final int done;
+  final int total;
 }
 
 class _TaskRow {
