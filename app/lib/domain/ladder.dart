@@ -20,9 +20,14 @@ enum LadderState {
 
 /// Pure function. Given the full catalog and a per-child progress map, returns
 /// the LadderState for `task`.
+///
+/// [knownSlugs] is optional; when provided, any mandatory prereq whose slug
+/// is not in the set is treated as satisfied (content was renamed/removed —
+/// silent lock would be worse than permissive unlock).
 LadderState computeLadderState({
   required Task task,
   required Map<String, TaskProgress> progressBySlug,
+  Set<String>? knownSlugs,
 }) {
   final self = progressBySlug[task.slug];
   if (self != null) {
@@ -43,6 +48,7 @@ LadderState computeLadderState({
   var sawWarning = false;
   for (final p in task.prerequisites) {
     if (!p.isMandatory) continue;
+    if (knownSlugs != null && !knownSlugs.contains(p.taskSlug)) continue;
     final prog = progressBySlug[p.taskSlug];
     if (prog == null) return LadderState.locked;
     if (prog.satisfies) continue;

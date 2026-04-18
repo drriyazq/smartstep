@@ -1,5 +1,3 @@
-import 'dart:math';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -12,6 +10,7 @@ import '../../data/local/hive_setup.dart';
 import '../../data/local/task_progress.dart';
 import '../../domain/ladder.dart';
 import '../../domain/models.dart';
+import '../../domain/prioritise.dart';
 import '../../providers.dart';
 
 String _sexParam(Sex sex) => switch (sex) {
@@ -227,7 +226,6 @@ class _LadderList extends ConsumerStatefulWidget {
 }
 
 class _LadderListState extends ConsumerState<_LadderList> {
-  static const _nextUpLimit = 5;
   bool _showAllNextUp = false;
 
   String _filterKey() => 'cat_filter::${widget.childId}';
@@ -312,21 +310,23 @@ class _LadderListState extends ConsumerState<_LadderList> {
             today);
   }
 
-  // ── Today's pick ────────────────────────────────────────────────────
-  Task? _pickTodaysTask(List<_TaskRow> unlockedRows) {
-    if (unlockedRows.isEmpty) return null;
+  // ── Today's pick — Phase 5: top-priority unlocked task ──────────────
+  // [prioritisedUnlocked] is already sorted by priority score; the first
+  // element is the best pick. We persist the slug per day so it stays stable
+  // until tomorrow (or until the user completes/skips it, in which case the
+  // next-best unlocked task takes its place).
+  Task? _pickTodaysTask(List<_TaskRow> prioritisedUnlocked) {
+    if (prioritisedUnlocked.isEmpty) return null;
     final now = DateTime.now();
     final dateKey =
         "${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}";
     final stored = HiveSetup.sessionBox.get(_todayPickKey(dateKey)) as String?;
     if (stored != null) {
-      for (final r in unlockedRows) {
+      for (final r in prioritisedUnlocked) {
         if (r.task.slug == stored) return r.task;
       }
     }
-    // Pick deterministically by date so it doesn't change on rebuilds
-    final index = Random(dateKey.hashCode).nextInt(unlockedRows.length);
-    final pick = unlockedRows[index].task;
+    final pick = prioritisedUnlocked.first.task;
     HiveSetup.sessionBox.put(_todayPickKey(dateKey), pick.slug);
     return pick;
   }
@@ -351,13 +351,31 @@ class _LadderListState extends ConsumerState<_LadderList> {
     final progress = {for (final p in allProgress) p.taskSlug: p};
     final taskBySlug = {for (final t in tasks) t.slug: t};
 
+    // Set of all slugs in the full catalog (for graceful missing-prereq handling)
+    final knownSlugs = widget.tasks.map((t) => t.slug).toSet();
+
+    // Practice counts map (for close-to-done scoring + the continue card)
+    final practiceCounts = <String, int>{};
+    for (final key in HiveSetup.sessionBox.keys) {
+      if (key is! String) continue;
+      final prefix = 'count::$childId::';
+      if (!key.startsWith(prefix)) continue;
+      final slug = key.substring(prefix.length);
+      final value = HiveSetup.sessionBox.get(key);
+      if (value is int && value > 0) practiceCounts[slug] = value;
+    }
+
     // ── Classify every task ─────────────────────────────────────────
     final nextUpRows = <_TaskRow>[];
     final doneByCategory = <String, List<_TaskRow>>{};
     final skippedRows = <_TaskRow>[];
 
     for (final t in tasks) {
-      final state = computeLadderState(task: t, progressBySlug: progress);
+      final state = computeLadderState(
+        task: t,
+        progressBySlug: progress,
+        knownSlugs: knownSlugs,
+      );
       final prog = progress[t.slug];
       final category = t.tags.isEmpty ? "other" : t.tags.first.category;
       final isAboveAge = t.minAge > childAge;
@@ -393,19 +411,53 @@ class _LadderListState extends ConsumerState<_LadderList> {
         continue;
       }
     }
-    nextUpRows.sort((a, b) => a.state.index.compareTo(b.state.index));
 
+    // ── Phase 1–3: Priority scoring + balanced ordering + gateway counts ─
+    final isUnlockedMap = <String, bool>{};
+    final isAboveAgeMap = <String, bool>{};
+    for (final r in nextUpRows) {
+      isUnlockedMap[r.task.slug] = r.state == LadderState.unlocked;
+      isAboveAgeMap[r.task.slug] = r.isAboveAge;
+    }
+    final scores = scoreTasks(
+      candidates: nextUpRows.map((r) => r.task).toList(),
+      allTasks: widget.tasks,
+      isUnlocked: isUnlockedMap,
+      isAboveAge: isAboveAgeMap,
+      childAge: childAge,
+      practiceCounts: practiceCounts,
+      today: DateTime.now(),
+    );
+    final ordered = orderByPriorityWithBalance(
+      nextUpRows.map((r) => r.task).toList(),
+      scores,
+    );
+    final rowBySlug = {for (final r in nextUpRows) r.task.slug: r};
+    final prioritisedRows = ordered.map((t) {
+      final original = rowBySlug[t.slug]!;
+      return _TaskRow(
+        t,
+        original.state,
+        warningPrereqTitle: original.warningPrereqTitle,
+        isAboveAge: original.isAboveAge,
+        unlocksDownstream: scores[t.slug]?.unlocksDownstream ?? 0,
+      );
+    }).toList();
+
+    // Phase 2: dynamic limit scales with ladder size
+    final nextUpLimit = dynamicNextUpLimit(prioritisedRows.length);
     final visibleNextUp = _showAllNextUp
-        ? nextUpRows
-        : nextUpRows.take(_nextUpLimit).toList();
-    final hiddenCount = nextUpRows.length - visibleNextUp.length;
+        ? prioritisedRows
+        : prioritisedRows.take(nextUpLimit).toList();
+    final hiddenCount = prioritisedRows.length - visibleNextUp.length;
 
     // ── Continue practising (partial practice counts) ───────────────
-    final continueRow = _findContinueRow(nextUpRows);
+    final continueRow = _findContinueRow(prioritisedRows);
 
-    // ── Today's Pick (deterministic daily pick) ─────────────────────
-    final unlockedOnly =
-        nextUpRows.where((r) => r.state == LadderState.unlocked).toList();
+    // ── Phase 5: Smart Today's Pick — top-priority unlocked task ────
+    final unlockedOnly = prioritisedRows
+        .where((r) => r.state == LadderState.unlocked)
+        .toList();
     final todaysPick = _pickTodaysTask(unlockedOnly);
 
     // ── Custom tasks ─────────────────────────────────────────────────
@@ -504,12 +556,12 @@ class _LadderListState extends ConsumerState<_LadderList> {
         ],
 
         // ── Next Up ───────────────────────────────────────────────
-        if (nextUpRows.isNotEmpty) ...[
+        if (prioritisedRows.isNotEmpty) ...[
           _SectionHeader(
             icon: Icons.rocket_launch_outlined,
             label: "Next Up",
             color: Theme.of(context).colorScheme.primary,
-            count: "${nextUpRows.length} available",
+            count: "${prioritisedRows.length} available",
           ),
           const SizedBox(height: 10),
           ...visibleNextUp.map(
@@ -525,7 +577,7 @@ class _LadderListState extends ConsumerState<_LadderList> {
               icon: const Icon(Icons.expand_more, size: 18),
               label: Text("$hiddenCount more available"),
             )
-          else if (_showAllNextUp && nextUpRows.length > _nextUpLimit)
+          else if (_showAllNextUp && prioritisedRows.length > nextUpLimit)
             TextButton.icon(
               onPressed: () => setState(() => _showAllNextUp = false),
               icon: const Icon(Icons.expand_less, size: 18),
@@ -724,6 +776,37 @@ class _LadderListState extends ConsumerState<_LadderList> {
                                   ],
                                 ),
                               ),
+                            if (!isDone && row.unlocksDownstream >= 3) ...[
+                              const SizedBox(width: 4),
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 8, vertical: 3),
+                                decoration: BoxDecoration(
+                                  color: Colors.teal.shade50,
+                                  borderRadius: BorderRadius.circular(10),
+                                  border: Border.all(
+                                      color: Colors.teal.shade300,
+                                      width: 0.8),
+                                ),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(Icons.vpn_key_outlined,
+                                        size: 11,
+                                        color: Colors.teal.shade700),
+                                    const SizedBox(width: 3),
+                                    Text(
+                                      "Unlocks ${row.unlocksDownstream}",
+                                      style: TextStyle(
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.w700,
+                                        color: Colors.teal.shade700,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
                             const SizedBox(width: 4),
                             Icon(Icons.chevron_right,
                                 color: Colors.grey.shade400, size: 20),
@@ -1660,10 +1743,16 @@ class _CategoryStat {
 }
 
 class _TaskRow {
-  _TaskRow(this.task, this.state,
-      {this.warningPrereqTitle, this.isAboveAge = false});
+  _TaskRow(
+    this.task,
+    this.state, {
+    this.warningPrereqTitle,
+    this.isAboveAge = false,
+    this.unlocksDownstream = 0,
+  });
   final Task task;
   final LadderState state;
   final String? warningPrereqTitle;
   final bool isAboveAge;
+  final int unlocksDownstream;
 }
