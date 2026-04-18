@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:share_plus/share_plus.dart';
 
 import '../../data/api/task_repository.dart';
 import '../../data/local/active_child.dart';
@@ -107,6 +108,16 @@ class DashboardScreen extends ConsumerWidget {
         ),
         actions: [
           IconButton(
+            icon: const Icon(Icons.share_outlined),
+            tooltip: "Share SmartStep",
+            onPressed: () => Share.share(
+              "My child is learning real life skills with SmartStep! 🌟\n\n"
+              "500+ skills — money, cooking, social skills, digital safety and more. "
+              "Each skill unlocks the next, like a game. Built for Indian families.\n\n"
+              "#SmartStep #LifeSkills #IndianParents",
+            ),
+          ),
+          IconButton(
             icon: const Icon(Icons.person_outline),
             tooltip: "Profile",
             onPressed: () => context.push("/profile"),
@@ -151,7 +162,7 @@ class DashboardScreen extends ConsumerWidget {
             Padding(
               padding: const EdgeInsets.fromLTRB(20, 20, 20, 8),
               child: Text(
-                "Switch child",
+                "Switch Child",
                 style: Theme.of(context)
                     .textTheme
                     .titleMedium
@@ -192,7 +203,7 @@ class DashboardScreen extends ConsumerWidget {
               leading: const CircleAvatar(
                 child: Icon(Icons.add),
               ),
-              title: const Text("Add another child"),
+              title: const Text("Add Another Child"),
               onTap: () {
                 Navigator.pop(context);
                 context.push('/onboarding/child?adding=true');

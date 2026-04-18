@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:share_plus/share_plus.dart';
 
 import '../../data/api/reward_repository.dart';
 import '../../data/api/task_repository.dart';
@@ -73,7 +74,7 @@ class TaskDetailScreen extends ConsumerWidget {
             Card(
               child: ListTile(
                 leading: const Icon(Icons.check_circle, color: Colors.green),
-                title: const Text("Already completed"),
+                title: const Text("Already Completed"),
                 subtitle: savedReward != null && savedReward.isNotEmpty
                     ? Text("Reward: $savedReward",
                         style: TextStyle(color: Colors.green.shade700))
@@ -83,7 +84,7 @@ class TaskDetailScreen extends ConsumerWidget {
           else ...[
             FilledButton.icon(
               icon: const Icon(Icons.check),
-              label: const Text("Mark complete"),
+              label: const Text("Mark Complete"),
               onPressed: () => _markComplete(context, ref, task, child.id),
             ),
             const SizedBox(height: 8),
@@ -93,7 +94,7 @@ class TaskDetailScreen extends ConsumerWidget {
                   child: OutlinedButton(
                     onPressed: () => _skip(
                         context, ref, task, child.id, ProgressStatus.skippedKnown),
-                    child: const Text("Already knows"),
+                    child: const Text("Already Knows"),
                   ),
                 ),
                 const SizedBox(width: 8),
@@ -101,7 +102,7 @@ class TaskDetailScreen extends ConsumerWidget {
                   child: OutlinedButton(
                     onPressed: () => _skip(
                         context, ref, task, child.id, ProgressStatus.skippedUnsuitable),
-                    child: const Text("Not suitable"),
+                    child: const Text("Not Suitable"),
                   ),
                 ),
               ],
@@ -150,36 +151,38 @@ class TaskDetailScreen extends ConsumerWidget {
     // Signal the dashboard to rebuild.
     ref.read(progressVersionProvider.notifier).state++;
 
-    if (context.mounted) {
-      context.pop();
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Row(
-            children: [
-              const Icon(Icons.check_circle, color: Colors.white),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Text(
-                  reward.isEmpty
-                      ? '"${task.title}" marked complete!'
-                      : '"${task.title}" completed! Reward: $reward',
-                  maxLines: 2,
-                ),
-              ),
-            ],
-          ),
-          backgroundColor: Colors.green.shade700,
-          duration: const Duration(seconds: 4),
-        ),
-      );
-    }
-
     // Fire-and-forget telemetry — anonymous.
     unawaited(ref.read(_postCompletionProvider((
       taskSlug: task.slug,
       ageBand: child.ageBand(DateTime.now()),
       environment: child.environment.name,
     )).future));
+
+    if (context.mounted) {
+      // Show celebration & share sheet
+      final shareMsg = _buildShareMessage(child.name, task.title, reward);
+      await showModalBottomSheet(
+        context: context,
+        isDismissible: false,
+        enableDrag: false,
+        builder: (_) => _CelebrationSheet(
+          childName: child.name,
+          taskTitle: task.title,
+          reward: reward,
+          shareMessage: shareMsg,
+        ),
+      );
+      if (context.mounted) context.pop();
+    }
+  }
+
+  String _buildShareMessage(String childName, String taskTitle, String reward) {
+    final rewardLine = reward.isNotEmpty ? "\n🎁 Reward: $reward" : "";
+    return "🌟 Proud parent moment!\n\n"
+        "$childName just learned \"$taskTitle\" — "
+        "a real life skill that most kids never get taught!$rewardLine\n\n"
+        "We are building life skills one step at a time with SmartStep 🚀\n\n"
+        "#SmartStep #LifeSkills #ProudParent #GrowingUp";
   }
 
   Future<void> _skip(
@@ -260,6 +263,91 @@ class _ParentNoteCardState extends State<_ParentNoteCard> {
               ),
             ),
         ],
+      ),
+    );
+  }
+}
+
+class _CelebrationSheet extends StatelessWidget {
+  const _CelebrationSheet({
+    required this.childName,
+    required this.taskTitle,
+    required this.reward,
+    required this.shareMessage,
+  });
+  final String childName;
+  final String taskTitle;
+  final String reward;
+  final String shareMessage;
+
+  @override
+  Widget build(BuildContext context) {
+    return SafeArea(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(20, 28, 20, 20),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text("🎉", style: TextStyle(fontSize: 48)),
+            const SizedBox(height: 12),
+            Text(
+              "$childName completed a skill!",
+              style: Theme.of(context)
+                  .textTheme
+                  .titleLarge
+                  ?.copyWith(fontWeight: FontWeight.bold),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 6),
+            Text(
+              taskTitle,
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    color: Colors.grey.shade600,
+                  ),
+              textAlign: TextAlign.center,
+            ),
+            if (reward.isNotEmpty) ...[
+              const SizedBox(height: 4),
+              Text(
+                "🎁 Reward: $reward",
+                style: TextStyle(
+                  color: Colors.green.shade700,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ],
+            const SizedBox(height: 24),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: Colors.grey.shade100,
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Text(
+                shareMessage,
+                style: const TextStyle(fontSize: 13),
+              ),
+            ),
+            const SizedBox(height: 16),
+            SizedBox(
+              width: double.infinity,
+              child: FilledButton.icon(
+                icon: const Icon(Icons.share_outlined),
+                label: const Text("Share on WhatsApp / Social Media"),
+                onPressed: () => Share.share(shareMessage),
+              ),
+            ),
+            const SizedBox(height: 8),
+            SizedBox(
+              width: double.infinity,
+              child: TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text("Close"),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

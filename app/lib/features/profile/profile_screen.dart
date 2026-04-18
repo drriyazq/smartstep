@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:share_plus/share_plus.dart';
 
 import '../../data/api/task_repository.dart';
 import '../../data/local/active_child.dart';
@@ -103,6 +104,52 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     );
     await HiveSetup.childBox.put(_child.id, updated);
     if (mounted) setState(() {});
+  }
+
+  void _shareApp() {
+    Share.share(
+      "Most kids finish school knowing complex maths but can't make a phone call, "
+      "manage their pocket money, or say sorry properly.\n\n"
+      "SmartStep is an Android app that teaches children aged 7–13 real life skills — "
+      "how to greet adults, handle money, cook a simple meal, stay safe online, and so much more. "
+      "Each skill they learn unlocks the next one, like a game. "
+      "Parents choose the reward when a skill is done.\n\n"
+      "500+ skills. Every child's journey is different. Built for Indian families. 🚀\n\n"
+      "#SmartStep #LifeSkills #IndianParents",
+    );
+  }
+
+  Future<void> _confirmLogout() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text("Log Out?"),
+        content: const Text(
+          "This will remove all children and progress from this device. "
+          "You will need to set up the app again.",
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text("Cancel"),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(
+                backgroundColor: Theme.of(context).colorScheme.error),
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text("Log Out"),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+    await HiveSetup.childBox.clear();
+    await HiveSetup.progressBox.clear();
+    await HiveSetup.sessionBox.clear();
+    await HiveSetup.rewardUsageBox.clear();
+    await HiveSetup.customRewardBox.clear();
+    await HiveSetup.customTaskBox.clear();
+    if (mounted) context.go('/phone');
   }
 
   Future<void> _confirmResetProgress() async {
@@ -640,7 +687,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
 
           // ── All children ──────────────────────────────────────────
           Text(
-            "Children on this device",
+            "Children on This Device",
             style: Theme.of(context)
                 .textTheme
                 .titleMedium
@@ -685,19 +732,27 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
           const SizedBox(height: 8),
           OutlinedButton.icon(
             icon: const Icon(Icons.add),
-            label: const Text("Add another child"),
+            label: const Text("Add Another Child"),
             onPressed: () => context.push('/onboarding/child?adding=true'),
           ),
           const SizedBox(height: 16),
 
-          // ── Danger zone ───────────────────────────────────────────
+          // ── Share & Logout ────────────────────────────────────────
           const Divider(),
           const SizedBox(height: 12),
+          OutlinedButton.icon(
+            icon: const Icon(Icons.share_outlined),
+            label: const Text("Share SmartStep"),
+            onPressed: _shareApp,
+          ),
+          const SizedBox(height: 10),
+
+          // ── Danger zone ───────────────────────────────────────────
           OutlinedButton.icon(
             icon: Icon(Icons.refresh,
                 color: Theme.of(context).colorScheme.error),
             label: Text(
-              "Reset all progress",
+              "Reset All Progress",
               style: TextStyle(
                   color: Theme.of(context).colorScheme.error),
             ),
@@ -706,6 +761,21 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                   color: Theme.of(context).colorScheme.error),
             ),
             onPressed: _confirmResetProgress,
+          ),
+          const SizedBox(height: 10),
+          OutlinedButton.icon(
+            icon: Icon(Icons.logout,
+                color: Theme.of(context).colorScheme.error),
+            label: Text(
+              "Log Out",
+              style: TextStyle(
+                  color: Theme.of(context).colorScheme.error),
+            ),
+            style: OutlinedButton.styleFrom(
+              side: BorderSide(
+                  color: Theme.of(context).colorScheme.error),
+            ),
+            onPressed: _confirmLogout,
           ),
         ],
       ),
