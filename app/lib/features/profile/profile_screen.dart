@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../data/api/task_repository.dart';
+import '../../data/local/active_child.dart';
 import '../../data/local/child_profile.dart';
 import '../../data/local/hive_setup.dart';
 import '../../data/local/task_progress.dart';
@@ -14,7 +16,8 @@ class ProfileScreen extends ConsumerStatefulWidget {
 }
 
 class _ProfileScreenState extends ConsumerState<ProfileScreen> {
-  ChildProfile get _child => HiveSetup.childBox.values.first;
+  ChildProfile get _child =>
+      HiveSetup.childBox.get(ref.read(activeChildIdProvider))!;
 
   Future<void> _editName() async {
     final controller = TextEditingController(text: _child.name);
@@ -273,6 +276,58 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                 icon: Icons.cancel_outlined,
               ),
             ],
+          ),
+          const SizedBox(height: 32),
+
+          // ── All children ──────────────────────────────────────────
+          Text(
+            "Children on this device",
+            style: Theme.of(context)
+                .textTheme
+                .titleMedium
+                ?.copyWith(fontWeight: FontWeight.w700),
+          ),
+          const SizedBox(height: 10),
+          for (final c in HiveSetup.childBox.values) ...[
+            Card(
+              margin: const EdgeInsets.only(bottom: 8),
+              child: ListTile(
+                leading: CircleAvatar(
+                  backgroundColor: c.id == child.id
+                      ? cs.primaryContainer
+                      : Colors.grey.shade200,
+                  child: Text(
+                    c.name[0].toUpperCase(),
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      color: c.id == child.id
+                          ? cs.onPrimaryContainer
+                          : Colors.grey.shade700,
+                    ),
+                  ),
+                ),
+                title: Text(c.name),
+                subtitle: Text(
+                    "Age ${c.ageOn(DateTime.now())} · ${_envLabel(c.environment)}"),
+                trailing: c.id == child.id
+                    ? Icon(Icons.check_circle, color: cs.primary)
+                    : TextButton(
+                        onPressed: () {
+                          setActiveChild(
+                              ref.read(activeChildIdProvider.notifier),
+                              c.id);
+                          setState(() {});
+                        },
+                        child: const Text("Switch"),
+                      ),
+              ),
+            ),
+          ],
+          const SizedBox(height: 8),
+          OutlinedButton.icon(
+            icon: const Icon(Icons.add),
+            label: const Text("Add another child"),
+            onPressed: () => context.push('/onboarding/child?adding=true'),
           ),
           const SizedBox(height: 32),
 

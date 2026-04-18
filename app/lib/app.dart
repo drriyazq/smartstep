@@ -17,22 +17,33 @@ final _router = GoRouter(
     final hasProfile = HiveSetup.childBox.isNotEmpty;
     final onboardingPath = state.matchedLocation.startsWith("/onboarding") ||
         state.matchedLocation == "/phone";
-    if (hasProfile && onboardingPath) return "/dashboard";
+    // Allow onboarding routes when explicitly adding a second child.
+    final addingChild = state.uri.queryParameters['adding'] == 'true';
+    if (hasProfile && onboardingPath && !addingChild) return "/dashboard";
     if (!hasProfile && !onboardingPath) return "/phone";
     return null;
   },
   routes: [
     GoRoute(path: "/phone", builder: (_, __) => const PhoneScreen()),
-    GoRoute(path: "/onboarding/child", builder: (_, __) => const ChildProfileScreen()),
+    GoRoute(
+      path: "/onboarding/child",
+      builder: (_, state) => ChildProfileScreen(
+        adding: state.uri.queryParameters['adding'] == 'true',
+      ),
+    ),
     GoRoute(
       path: "/onboarding/environment",
-      builder: (_, state) =>
-          EnvironmentScreen(childId: state.uri.queryParameters["childId"]!),
+      builder: (_, state) => EnvironmentScreen(
+        childId: state.uri.queryParameters["childId"]!,
+        adding: state.uri.queryParameters['adding'] == 'true',
+      ),
     ),
     GoRoute(
       path: "/onboarding/baseline",
-      builder: (_, state) =>
-          BaselineScreen(childId: state.uri.queryParameters["childId"]!),
+      builder: (_, state) => BaselineScreen(
+        childId: state.uri.queryParameters["childId"]!,
+        adding: state.uri.queryParameters['adding'] == 'true',
+      ),
     ),
     GoRoute(path: "/dashboard", builder: (_, __) => const DashboardScreen()),
     GoRoute(

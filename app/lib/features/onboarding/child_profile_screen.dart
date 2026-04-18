@@ -6,7 +6,8 @@ import '../../data/local/child_profile.dart';
 import '../../data/local/hive_setup.dart';
 
 class ChildProfileScreen extends ConsumerStatefulWidget {
-  const ChildProfileScreen({super.key});
+  const ChildProfileScreen({super.key, this.adding = false});
+  final bool adding;
 
   @override
   ConsumerState<ChildProfileScreen> createState() => _State();
@@ -86,6 +87,7 @@ class _State extends ConsumerState<ChildProfileScreen> {
     );
     await HiveSetup.childBox.put(id, profile);
     if (!mounted) return;
-    context.go("/onboarding/environment?childId=$id");
+    final addingParam = widget.adding ? '&adding=true' : '';
+    context.go("/onboarding/environment?childId=$id$addingParam");
   }
 }

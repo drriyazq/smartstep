@@ -2,13 +2,19 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../data/local/active_child.dart';
 import '../../data/local/hive_setup.dart';
 import '../../data/local/task_progress.dart';
 import '../../domain/baseline.dart';
 
 class BaselineScreen extends ConsumerStatefulWidget {
-  const BaselineScreen({super.key, required this.childId});
+  const BaselineScreen({
+    super.key,
+    required this.childId,
+    this.adding = false,
+  });
   final String childId;
+  final bool adding;
 
   @override
   ConsumerState<BaselineScreen> createState() => _State();
@@ -45,16 +51,20 @@ class _State extends ConsumerState<BaselineScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  Text(q.prompt, style: Theme.of(context).textTheme.titleMedium),
+                  Text(q.prompt,
+                      style: Theme.of(context).textTheme.titleMedium),
                   const SizedBox(height: 12),
                   Row(
                     children: [
                       Expanded(
                         child: OutlinedButton(
-                          onPressed: () => setState(() => _answers[i] = true),
+                          onPressed: () =>
+                              setState(() => _answers[i] = true),
                           style: OutlinedButton.styleFrom(
                             backgroundColor: answer == true
-                                ? Theme.of(context).colorScheme.primaryContainer
+                                ? Theme.of(context)
+                                    .colorScheme
+                                    .primaryContainer
                                 : null,
                           ),
                           child: const Text("Yes"),
@@ -63,10 +73,13 @@ class _State extends ConsumerState<BaselineScreen> {
                       const SizedBox(width: 12),
                       Expanded(
                         child: OutlinedButton(
-                          onPressed: () => setState(() => _answers[i] = false),
+                          onPressed: () =>
+                              setState(() => _answers[i] = false),
                           style: OutlinedButton.styleFrom(
                             backgroundColor: answer == false
-                                ? Theme.of(context).colorScheme.primaryContainer
+                                ? Theme.of(context)
+                                    .colorScheme
+                                    .primaryContainer
                                 : null,
                           ),
                           child: const Text("Not yet"),
@@ -99,6 +112,13 @@ class _State extends ConsumerState<BaselineScreen> {
       }
     }
     if (!mounted) return;
+    if (widget.adding) {
+      // Switch to the newly added child before returning to the dashboard.
+      setActiveChild(
+        ref.read(activeChildIdProvider.notifier),
+        widget.childId,
+      );
+    }
     context.go("/dashboard");
   }
 }

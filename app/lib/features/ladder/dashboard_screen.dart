@@ -3,19 +3,22 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../data/api/task_repository.dart';
+import '../../data/local/active_child.dart';
+import '../../data/local/child_profile.dart';
 import '../../data/local/hive_setup.dart';
 import '../../data/local/task_progress.dart';
 import '../../domain/ladder.dart';
 import '../../domain/models.dart';
 
+// Auto-refreshes when the active child changes (different environment = new fetch).
 final _catalogProvider = FutureProvider<List<Task>>((ref) async {
-  final child = HiveSetup.childBox.values.first;
+  final activeId = ref.watch(activeChildIdProvider);
+  final child = HiveSetup.childBox.get(activeId)!;
   return ref.read(taskRepositoryProvider).fetchAll(
         environment: child.environment.name,
       );
 });
 
-// Per-category visual metadata
 ({IconData icon, String label, Color color}) _categoryMeta(String cat) =>
     switch (cat) {
       'financial' => (
@@ -55,12 +58,26 @@ class DashboardScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final activeId = ref.watch(activeChildIdProvider);
+    final child = HiveSetup.childBox.get(activeId)!;
     final asyncCatalog = ref.watch(_catalogProvider);
-    final child = HiveSetup.childBox.values.first;
+    final hasMultiple = HiveSetup.childBox.length > 1;
 
     return Scaffold(
       appBar: AppBar(
-        title: Text("${child.name}'s Ladder"),
+        title: GestureDetector(
+          onTap: () => _showChildSwitcher(context, ref, activeId),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text("${child.name}'s Ladder"),
+              if (hasMultiple) ...[
+                const SizedBox(width: 4),
+                const Icon(Icons.keyboard_arrow_down, size: 20),
+              ],
+            ],
+          ),
+        ),
         actions: [
           IconButton(
             icon: const Icon(Icons.person_outline),
@@ -70,7 +87,7 @@ class DashboardScreen extends ConsumerWidget {
         ],
       ),
       body: asyncCatalog.when(
-        data: (tasks) => _LadderList(tasks: tasks, childId: child.id),
+        data: (tasks) => _LadderList(tasks: tasks, childId: activeId),
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (e, _) => Center(
           child: Padding(
@@ -94,6 +111,72 @@ class DashboardScreen extends ConsumerWidget {
       ),
     );
   }
+
+  void _showChildSwitcher(
+      BuildContext context, WidgetRef ref, String activeId) {
+    showModalBottomSheet(
+      context: context,
+      builder: (_) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 20, 20, 8),
+              child: Text(
+                "Switch child",
+                style: Theme.of(context)
+                    .textTheme
+                    .titleMedium
+                    ?.copyWith(fontWeight: FontWeight.bold),
+              ),
+            ),
+            for (final c in HiveSetup.childBox.values) ...[
+              ListTile(
+                leading: CircleAvatar(
+                  backgroundColor:
+                      Theme.of(context).colorScheme.primaryContainer,
+                  child: Text(
+                    c.name[0].toUpperCase(),
+                    style: TextStyle(
+                      color: Theme.of(context).colorScheme.onPrimaryContainer,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+                title: Text(c.name),
+                subtitle: Text(
+                    "Age ${c.ageOn(DateTime.now())} · ${c.environment.name[0].toUpperCase()}${c.environment.name.substring(1)}"),
+                trailing: c.id == activeId
+                    ? Icon(Icons.check_circle,
+                        color: Theme.of(context).colorScheme.primary)
+                    : null,
+                onTap: () {
+                  if (c.id != activeId) {
+                    setActiveChild(
+                        ref.read(activeChildIdProvider.notifier), c.id);
+                  }
+                  Navigator.pop(context);
+                },
+              ),
+            ],
+            const Divider(height: 1),
+            ListTile(
+              leading: const CircleAvatar(
+                child: Icon(Icons.add),
+              ),
+              title: const Text("Add another child"),
+              onTap: () {
+                Navigator.pop(context);
+                context.push('/onboarding/child?adding=true');
+              },
+            ),
+            const SizedBox(height: 8),
+          ],
+        ),
+      ),
+    );
+  }
 }
 
 class _LadderList extends StatelessWidget {
@@ -104,12 +187,12 @@ class _LadderList extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final progress = {
-      for (final p in HiveSetup.progressBox.values.where((p) => p.childId == childId))
+      for (final p in HiveSetup.progressBox.values
+          .where((p) => p.childId == childId))
         p.taskSlug: p,
     };
     final taskBySlug = {for (final t in tasks) t.slug: t};
 
-    // Build grouped task rows
     final grouped = <String, List<_TaskRow>>{};
     for (final t in tasks) {
       final state = computeLadderState(task: t, progressBySlug: progress);
@@ -133,7 +216,6 @@ class _LadderList extends StatelessWidget {
     }
     final categories = grouped.keys.toList()..sort();
 
-    // Overall progress stats
     final completedCount = progress.values
         .where((p) => p.status == ProgressStatus.completed)
         .length;
@@ -146,39 +228,45 @@ class _LadderList extends StatelessWidget {
     return ListView(
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
       children: [
-        // ── Progress summary card ──────────────────────────────────
         _ProgressCard(
           done: doneCount,
           completed: completedCount,
           total: total,
         ),
         const SizedBox(height: 20),
-
-        // ── Category sections ──────────────────────────────────────
         for (final c in categories) ...[
-          _CategoryHeader(
-            category: c,
-            rows: grouped[c]!,
-          ),
+          _CategoryHeader(category: c, rows: grouped[c]!),
           const SizedBox(height: 8),
-          ...grouped[c]!.map((row) => _buildTile(context, row, c)),
+          ...grouped[c]!.map(
+            (row) => _buildTile(context, row, c, taskBySlug, progress),
+          ),
           const SizedBox(height: 20),
         ],
       ],
     );
   }
 
-  Widget _buildTile(BuildContext context, _TaskRow row, String category) {
+  Widget _buildTile(
+    BuildContext context,
+    _TaskRow row,
+    String category,
+    Map<String, Task> taskBySlug,
+    Map<String, TaskProgress> progress,
+  ) {
     final meta = _categoryMeta(category);
-    final enabled = row.state == LadderState.unlocked ||
+    final isLocked = row.state == LadderState.locked;
+    final isInteractive = row.state == LadderState.unlocked ||
         row.state == LadderState.lockedWithWarning ||
-        row.state == LadderState.completed;
+        row.state == LadderState.completed ||
+        isLocked;
 
     final (icon, color) = switch (row.state) {
       LadderState.completed => (Icons.check_circle, Colors.green.shade600),
-      LadderState.satisfied => (Icons.check_circle_outline, Colors.green.shade400),
+      LadderState.satisfied =>
+        (Icons.check_circle_outline, Colors.green.shade400),
       LadderState.unlocked => (Icons.play_circle_outline, meta.color),
-      LadderState.lockedWithWarning => (Icons.warning_amber_outlined, Colors.orange),
+      LadderState.lockedWithWarning =>
+        (Icons.warning_amber_outlined, Colors.orange),
       LadderState.locked => (Icons.lock_outline, Colors.grey.shade400),
     };
 
@@ -189,8 +277,8 @@ class _LadderList extends StatelessWidget {
         title: Text(
           row.task.title,
           style: TextStyle(
-            fontWeight: enabled ? FontWeight.w500 : FontWeight.normal,
-            color: enabled ? null : Colors.grey.shade500,
+            fontWeight: isLocked ? FontWeight.normal : FontWeight.w500,
+            color: isLocked ? Colors.grey.shade500 : null,
           ),
         ),
         subtitle: Text(
@@ -202,10 +290,85 @@ class _LadderList extends StatelessWidget {
                 : null,
           ),
         ),
-        trailing: enabled
-            ? Icon(Icons.chevron_right, color: Colors.grey.shade400, size: 20)
+        trailing: isInteractive
+            ? Icon(
+                isLocked ? Icons.info_outline : Icons.chevron_right,
+                color: Colors.grey.shade400,
+                size: 20,
+              )
             : null,
-        onTap: enabled ? () => context.push("/task/${row.task.slug}") : null,
+        onTap: isInteractive
+            ? () {
+                if (isLocked) {
+                  _showLockedInfo(
+                      context, row.task, taskBySlug, progress);
+                } else {
+                  context.push("/task/${row.task.slug}");
+                }
+              }
+            : null,
+      ),
+    );
+  }
+
+  void _showLockedInfo(
+    BuildContext context,
+    Task task,
+    Map<String, Task> taskBySlug,
+    Map<String, TaskProgress> progress,
+  ) {
+    final mandatory = task.prerequisites.where((p) => p.isMandatory).toList();
+
+    showModalBottomSheet(
+      context: context,
+      builder: (_) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(20, 20, 20, 8),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Icon(Icons.lock_outline, color: Colors.grey.shade600),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      task.title,
+                      style: Theme.of(context)
+                          .textTheme
+                          .titleMedium
+                          ?.copyWith(fontWeight: FontWeight.bold),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 6),
+              Text(
+                mandatory.isEmpty
+                    ? "This skill has no prerequisites — it should be unlocked. Try refreshing."
+                    : "Complete these skills first to unlock it:",
+                style: Theme.of(context)
+                    .textTheme
+                    .bodySmall
+                    ?.copyWith(color: Colors.grey.shade600),
+              ),
+              if (mandatory.isNotEmpty) ...[
+                const SizedBox(height: 16),
+                for (final p in mandatory) ...[
+                  _PrereqRow(
+                    prereqTask: taskBySlug[p.taskSlug],
+                    slug: p.taskSlug,
+                    progress: progress[p.taskSlug],
+                  ),
+                  const SizedBox(height: 10),
+                ],
+              ],
+              const SizedBox(height: 8),
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -217,8 +380,62 @@ class _LadderList extends StatelessWidget {
         LadderState.lockedWithWarning => row.warningPrereqTitle != null
             ? 'Needs: "${row.warningPrereqTitle}"'
             : "Requires a skipped skill",
-        LadderState.locked => "Complete prerequisites first",
+        LadderState.locked => "Tap to see what's needed",
       };
+}
+
+class _PrereqRow extends StatelessWidget {
+  const _PrereqRow({
+    required this.prereqTask,
+    required this.slug,
+    required this.progress,
+  });
+  final Task? prereqTask;
+  final String slug;
+  final TaskProgress? progress;
+
+  @override
+  Widget build(BuildContext context) {
+    final isDone = progress?.satisfies == true;
+    final title = prereqTask?.title ?? slug;
+
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Icon(
+          isDone ? Icons.check_circle : Icons.radio_button_unchecked,
+          color: isDone ? Colors.green.shade600 : Colors.grey.shade400,
+          size: 22,
+        ),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                title,
+                style: TextStyle(
+                  fontWeight: FontWeight.w500,
+                  color: isDone ? Colors.grey.shade500 : null,
+                  decoration:
+                      isDone ? TextDecoration.lineThrough : null,
+                ),
+              ),
+              Text(
+                isDone ? "Done" : "Not yet completed",
+                style: TextStyle(
+                  fontSize: 11,
+                  color: isDone
+                      ? Colors.green.shade600
+                      : Colors.orange.shade700,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
 }
 
 class _ProgressCard extends StatelessWidget {
@@ -262,9 +479,10 @@ class _ProgressCard extends StatelessWidget {
               child: LinearProgressIndicator(
                 value: pct,
                 minHeight: 8,
-                backgroundColor: cs.onPrimaryContainer.withOpacity(0.15),
-                valueColor:
-                    AlwaysStoppedAnimation<Color>(cs.onPrimaryContainer),
+                backgroundColor:
+                    cs.onPrimaryContainer.withOpacity(0.15),
+                valueColor: AlwaysStoppedAnimation<Color>(
+                    cs.onPrimaryContainer),
               ),
             ),
             const SizedBox(height: 8),
@@ -296,8 +514,6 @@ class _CategoryHeader extends StatelessWidget {
             r.state == LadderState.completed ||
             r.state == LadderState.satisfied)
         .length;
-    final total = rows.length;
-
     return Row(
       children: [
         Container(
@@ -319,7 +535,7 @@ class _CategoryHeader extends StatelessWidget {
           ),
         ),
         Text(
-          "$doneInCat / $total",
+          "$doneInCat / ${rows.length}",
           style: Theme.of(context).textTheme.bodySmall?.copyWith(
                 color: Colors.grey.shade600,
                 fontWeight: FontWeight.w500,

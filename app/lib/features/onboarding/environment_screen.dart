@@ -6,8 +6,13 @@ import '../../data/local/child_profile.dart';
 import '../../data/local/hive_setup.dart';
 
 class EnvironmentScreen extends ConsumerStatefulWidget {
-  const EnvironmentScreen({super.key, required this.childId});
+  const EnvironmentScreen({
+    super.key,
+    required this.childId,
+    this.adding = false,
+  });
   final String childId;
+  final bool adding;
 
   @override
   ConsumerState<EnvironmentScreen> createState() => _State();
@@ -67,6 +72,7 @@ class _State extends ConsumerState<EnvironmentScreen> {
       ),
     );
     if (!mounted) return;
-    context.go("/onboarding/baseline?childId=${widget.childId}");
+    final addingParam = widget.adding ? '&adding=true' : '';
+    context.go("/onboarding/baseline?childId=${widget.childId}$addingParam");
   }
 }
