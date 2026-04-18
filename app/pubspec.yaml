@@ -16,9 +16,10 @@ dependencies:
   go_router: ^14.2.0
   # HTTP
   dio: ^5.4.0
-  # Local storage (child PII lives here only)
+  # Local storage (child PII lives here only — encrypted at rest)
   hive: ^2.2.3
   hive_flutter: ^1.1.0
+  flutter_secure_storage: ^9.2.2
   # Markdown rendering
   flutter_markdown: ^0.7.3
   # Utilities

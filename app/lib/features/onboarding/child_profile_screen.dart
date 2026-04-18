@@ -27,8 +27,32 @@ class _State extends ConsumerState<ChildProfileScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            const Text("This information stays on this device only."),
-            const SizedBox(height: 24),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.green.shade50,
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: Colors.green.shade200),
+              ),
+              child: Row(
+                children: [
+                  Icon(Icons.lock_outline,
+                      size: 18, color: Colors.green.shade700),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      "This information stays on this device only — encrypted and never uploaded.",
+                      style: TextStyle(
+                        fontSize: 12.5,
+                        color: Colors.green.shade900,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 22),
             TextField(
               controller: _name,
               decoration: const InputDecoration(labelText: "Name or nickname"),
@@ -47,14 +71,15 @@ class _State extends ConsumerState<ChildProfileScreen> {
               items: const [
                 DropdownMenuItem(value: Sex.girl, child: Text("Girl")),
                 DropdownMenuItem(value: Sex.boy, child: Text("Boy")),
-                DropdownMenuItem(value: Sex.other, child: Text("Prefer not to say")),
+                DropdownMenuItem(
+                    value: Sex.other, child: Text("Prefer not to say")),
               ],
               onChanged: (v) => setState(() => _sex = v!),
               decoration: const InputDecoration(labelText: "Sex"),
             ),
             const Spacer(),
             FilledButton(
-              onPressed: _canSubmit ? _submit : null,
+              onPressed: _canSubmit ? _reviewAndSubmit : null,
               child: const Text("Next"),
             ),
           ],
@@ -75,6 +100,84 @@ class _State extends ConsumerState<ChildProfileScreen> {
     );
     if (picked != null) setState(() => _dob = picked);
   }
+
+  Future<void> _reviewAndSubmit() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text("Review before saving"),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              "The following details will be saved on this device only:",
+              style: TextStyle(fontSize: 13),
+            ),
+            const SizedBox(height: 12),
+            _reviewRow("Name", _name.text.trim()),
+            _reviewRow("Date of birth",
+                _dob!.toIso8601String().substring(0, 10)),
+            _reviewRow("Sex", _sexLabel(_sex)),
+            const SizedBox(height: 10),
+            Text(
+              "You can edit or delete this at any time from Profile.",
+              style: TextStyle(
+                fontSize: 11.5,
+                color: Colors.grey.shade600,
+                fontStyle: FontStyle.italic,
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text("Go back"),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text("Save"),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+    await _submit();
+  }
+
+  Widget _reviewRow(String label, String value) => Padding(
+        padding: const EdgeInsets.only(bottom: 6),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            SizedBox(
+              width: 90,
+              child: Text(
+                label,
+                style: TextStyle(
+                  fontSize: 13,
+                  color: Colors.grey.shade600,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ),
+            Expanded(
+              child: Text(
+                value,
+                style: const TextStyle(
+                    fontSize: 13, fontWeight: FontWeight.w600),
+              ),
+            ),
+          ],
+        ),
+      );
+
+  String _sexLabel(Sex s) => switch (s) {
+        Sex.boy => "Boy",
+        Sex.girl => "Girl",
+        Sex.other => "Prefer not to say",
+      };
 
   Future<void> _submit() async {
     final id = DateTime.now().microsecondsSinceEpoch.toString();

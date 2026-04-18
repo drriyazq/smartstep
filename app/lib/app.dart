@@ -4,8 +4,11 @@ import 'package:go_router/go_router.dart';
 
 import 'data/local/hive_setup.dart';
 import 'features/ladder/dashboard_screen.dart';
+import 'features/legal/privacy_policy_screen.dart';
+import 'features/legal/terms_screen.dart';
 import 'features/onboarding/baseline_screen.dart';
 import 'features/onboarding/child_profile_screen.dart';
+import 'features/onboarding/consent_screen.dart';
 import 'features/onboarding/environment_screen.dart';
 import 'features/onboarding/phone_screen.dart';
 import 'features/profile/profile_screen.dart';
@@ -13,18 +16,35 @@ import 'features/task/custom_task_detail_screen.dart';
 import 'features/task/task_detail_screen.dart';
 
 final _router = GoRouter(
-  initialLocation: "/phone",
+  initialLocation: "/consent",
   redirect: (context, state) {
+    final path = state.matchedLocation;
+
+    // Legal screens are always reachable (from onboarding + profile)
+    if (path.startsWith('/legal/')) return null;
+
+    final consentGiven = HiveSetup.sessionBox.get('consent_given') == '1';
     final hasProfile = HiveSetup.childBox.isNotEmpty;
-    final onboardingPath = state.matchedLocation.startsWith("/onboarding") ||
-        state.matchedLocation == "/phone";
-    // Allow onboarding routes when explicitly adding a second child.
+    final onConsent = path == '/consent';
+    final onboardingPath =
+        path.startsWith("/onboarding") || path == "/phone";
     final addingChild = state.uri.queryParameters['adding'] == 'true';
-    if (hasProfile && onboardingPath && !addingChild) return "/dashboard";
-    if (!hasProfile && !onboardingPath) return "/phone";
+
+    // No consent yet → only /consent allowed
+    if (!consentGiven && !onConsent) return "/consent";
+    // Consent given and already has at least one child → skip onboarding
+    if (consentGiven && hasProfile && (onConsent || (onboardingPath && !addingChild))) {
+      return "/dashboard";
+    }
+    // Consent given but no child yet → go through onboarding from /phone
+    if (consentGiven && !hasProfile && onConsent) return "/phone";
+    if (consentGiven && !hasProfile && !onboardingPath) return "/phone";
     return null;
   },
   routes: [
+    GoRoute(path: "/consent", builder: (_, __) => const ConsentScreen()),
+    GoRoute(path: "/legal/privacy", builder: (_, __) => const PrivacyPolicyScreen()),
+    GoRoute(path: "/legal/terms", builder: (_, __) => const TermsScreen()),
     GoRoute(path: "/phone", builder: (_, __) => const PhoneScreen()),
     GoRoute(
       path: "/onboarding/child",

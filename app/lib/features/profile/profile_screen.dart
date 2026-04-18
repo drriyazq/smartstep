@@ -11,6 +11,7 @@ import '../../data/local/custom_task.dart';
 import '../../data/local/hive_setup.dart';
 import '../../data/local/task_progress.dart';
 import '../../providers.dart';
+import 'data_export.dart';
 
 class ProfileScreen extends ConsumerStatefulWidget {
   const ProfileScreen({super.key});
@@ -195,6 +196,104 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
       "Parents choose the reward when a skill is done.\n\n"
       "500+ skills. Every child's journey is different. Built for Indian families. 🚀\n\n"
       "#SmartStep #LifeSkills #IndianParents",
+    );
+  }
+
+  Future<void> _exportChildData(String childId) async {
+    try {
+      await DataExport.exportForChild(childId);
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("Couldn't export: $e")),
+      );
+    }
+  }
+
+  Future<void> _confirmDeleteChild(ChildProfile c) async {
+    final isLast = HiveSetup.childBox.length <= 1;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: Text("Delete ${c.name}'s data?"),
+        content: Text(
+          isLast
+              ? "This will permanently delete all of ${c.name}'s data from this device. Since this is the only child, you will be signed out and returned to the start."
+              : "This will permanently delete all of ${c.name}'s profile, progress, rewards and custom tasks from this device. This cannot be undone.",
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text("Cancel"),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(
+              backgroundColor: Theme.of(context).colorScheme.error,
+            ),
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text("Delete permanently"),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+
+    // Delete all progress for this child
+    final progressKeys = HiveSetup.progressBox.keys
+        .where((k) => (k as String).startsWith(c.id))
+        .toList();
+    await HiveSetup.progressBox.deleteAll(progressKeys);
+
+    // Delete custom tasks for this child
+    final customTaskKeys = HiveSetup.customTaskBox.values
+        .where((t) => t.childId == c.id)
+        .map((t) => t.id)
+        .toList();
+    await HiveSetup.customTaskBox.deleteAll(customTaskKeys);
+
+    // Delete custom rewards for this child
+    final customRewardKeys = HiveSetup.customRewardBox.values
+        .where((r) => r.childId == c.id)
+        .map((r) => r.id)
+        .toList();
+    await HiveSetup.customRewardBox.deleteAll(customRewardKeys);
+
+    // Delete session-scoped child keys (practice counts, rewards, filters)
+    final sessionKeysToDelete = HiveSetup.sessionBox.keys
+        .where((k) => k is String && k.contains(c.id))
+        .toList();
+    await HiveSetup.sessionBox.deleteAll(sessionKeysToDelete);
+
+    // Finally delete the child record
+    await HiveSetup.childBox.delete(c.id);
+
+    if (isLast) {
+      // No children left — sign out completely, consent still counts
+      await HiveSetup.sessionBox.clear();
+      if (!mounted) return;
+      context.go('/consent');
+      return;
+    }
+
+    // Switch active child to another if the deleted one was active
+    if (ref.read(activeChildIdProvider) == c.id) {
+      final next = HiveSetup.childBox.values.first.id;
+      setActiveChild(ref.read(activeChildIdProvider.notifier), next);
+    }
+    ref.read(progressVersionProvider.notifier).state++;
+    if (!mounted) return;
+    setState(() {});
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text("${c.name}'s data was deleted.")),
+    );
+  }
+
+  void _contactPrivacy() {
+    Share.share(
+      "Subject: SmartStep Privacy Request\n\n"
+      "Please include your request (access / correction / deletion / "
+      "withdraw consent / grievance) when emailing drdentalmail@gmail.com.",
+      subject: 'SmartStep Privacy Request',
     );
   }
 
@@ -791,35 +890,66 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
           for (final c in HiveSetup.childBox.values) ...[
             Card(
               margin: const EdgeInsets.only(bottom: 8),
-              child: ListTile(
-                leading: CircleAvatar(
-                  backgroundColor: c.id == child.id
-                      ? cs.primaryContainer
-                      : Colors.grey.shade200,
-                  child: Text(
-                    c.name[0].toUpperCase(),
-                    style: TextStyle(
-                      fontWeight: FontWeight.bold,
-                      color: c.id == child.id
-                          ? cs.onPrimaryContainer
-                          : Colors.grey.shade700,
+              child: Column(
+                children: [
+                  ListTile(
+                    leading: CircleAvatar(
+                      backgroundColor: c.id == child.id
+                          ? cs.primaryContainer
+                          : Colors.grey.shade200,
+                      child: Text(
+                        c.name[0].toUpperCase(),
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          color: c.id == child.id
+                              ? cs.onPrimaryContainer
+                              : Colors.grey.shade700,
+                        ),
+                      ),
+                    ),
+                    title: Text(c.name),
+                    subtitle: Text(
+                        "Age ${c.ageOn(DateTime.now())} · ${_envLabel(c.environment)}"),
+                    trailing: c.id == child.id
+                        ? Icon(Icons.check_circle, color: cs.primary)
+                        : TextButton(
+                            onPressed: () {
+                              setActiveChild(
+                                  ref.read(activeChildIdProvider.notifier),
+                                  c.id);
+                              setState(() {});
+                            },
+                            child: const Text("Switch"),
+                          ),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(12, 0, 12, 10),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: TextButton.icon(
+                            icon: const Icon(Icons.download_outlined, size: 16),
+                            label: const Text("Export data",
+                                style: TextStyle(fontSize: 12.5)),
+                            onPressed: () => _exportChildData(c.id),
+                          ),
+                        ),
+                        Expanded(
+                          child: TextButton.icon(
+                            icon: Icon(Icons.delete_outline,
+                                size: 16, color: cs.error),
+                            label: Text(
+                              "Delete",
+                              style: TextStyle(
+                                  fontSize: 12.5, color: cs.error),
+                            ),
+                            onPressed: () => _confirmDeleteChild(c),
+                          ),
+                        ),
+                      ],
                     ),
                   ),
-                ),
-                title: Text(c.name),
-                subtitle: Text(
-                    "Age ${c.ageOn(DateTime.now())} · ${_envLabel(c.environment)}"),
-                trailing: c.id == child.id
-                    ? Icon(Icons.check_circle, color: cs.primary)
-                    : TextButton(
-                        onPressed: () {
-                          setActiveChild(
-                              ref.read(activeChildIdProvider.notifier),
-                              c.id);
-                          setState(() {});
-                        },
-                        child: const Text("Switch"),
-                      ),
+                ],
               ),
             ),
           ],
@@ -828,6 +958,38 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
             icon: const Icon(Icons.add),
             label: const Text("Add Another Child"),
             onPressed: () => context.push('/onboarding/child?adding=true'),
+          ),
+          const SizedBox(height: 20),
+
+          // ── Privacy & Data ────────────────────────────────────────
+          const Divider(),
+          const SizedBox(height: 12),
+          Text(
+            "Privacy & Data",
+            style: Theme.of(context)
+                .textTheme
+                .titleMedium
+                ?.copyWith(fontWeight: FontWeight.w700),
+          ),
+          const SizedBox(height: 10),
+          const _DataTransparencyCard(),
+          const SizedBox(height: 10),
+          OutlinedButton.icon(
+            icon: const Icon(Icons.description_outlined, size: 16),
+            label: const Text("Privacy Policy"),
+            onPressed: () => context.push('/legal/privacy'),
+          ),
+          const SizedBox(height: 8),
+          OutlinedButton.icon(
+            icon: const Icon(Icons.article_outlined, size: 16),
+            label: const Text("Terms of Use"),
+            onPressed: () => context.push('/legal/terms'),
+          ),
+          const SizedBox(height: 8),
+          OutlinedButton.icon(
+            icon: const Icon(Icons.email_outlined, size: 16),
+            label: const Text("Contact us about privacy"),
+            onPressed: _contactPrivacy,
           ),
           const SizedBox(height: 16),
 
@@ -1017,6 +1179,161 @@ class _StatChip extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+class _DataTransparencyCard extends StatefulWidget {
+  const _DataTransparencyCard();
+
+  @override
+  State<_DataTransparencyCard> createState() => _DataTransparencyCardState();
+}
+
+class _DataTransparencyCardState extends State<_DataTransparencyCard> {
+  bool _expanded = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.blue.shade50,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.blue.shade100),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          InkWell(
+            borderRadius: BorderRadius.circular(12),
+            onTap: () => setState(() => _expanded = !_expanded),
+            child: Padding(
+              padding: const EdgeInsets.all(14),
+              child: Row(
+                children: [
+                  Icon(Icons.shield_outlined,
+                      color: Colors.blue.shade700, size: 22),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      "What data SmartStep holds",
+                      style: TextStyle(
+                        fontWeight: FontWeight.w700,
+                        fontSize: 14,
+                        color: Colors.blue.shade900,
+                      ),
+                    ),
+                  ),
+                  Icon(
+                    _expanded ? Icons.expand_less : Icons.expand_more,
+                    color: Colors.blue.shade700,
+                  ),
+                ],
+              ),
+            ),
+          ),
+          if (_expanded)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(14, 0, 14, 14),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const _DataRow(
+                    emoji: '📱',
+                    title: 'On this device only',
+                    items: [
+                      "Child's name, date of birth, sex, environment",
+                      'Skill progress and completion dates',
+                      'Reward choices you select',
+                      'Custom tasks and rewards you add',
+                    ],
+                    subtle: false,
+                  ),
+                  const SizedBox(height: 10),
+                  const _DataRow(
+                    emoji: '📊',
+                    title: 'Sent anonymously to server',
+                    items: [
+                      'Skill identifier + age band + environment when a skill is completed',
+                      'No name, phone, child ID, or date of birth',
+                    ],
+                    subtle: false,
+                  ),
+                  const SizedBox(height: 10),
+                  const _DataRow(
+                    emoji: '🚫',
+                    title: 'Never collected',
+                    items: [
+                      'Location, contacts, camera, microphone',
+                      'Advertising identifiers, biometric data',
+                      'Photos, recordings, or writings of your child',
+                    ],
+                    subtle: true,
+                  ),
+                  const SizedBox(height: 10),
+                  Text(
+                    "All sensitive on-device data is encrypted with AES-256.",
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: Colors.blue.shade900,
+                      fontStyle: FontStyle.italic,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _DataRow extends StatelessWidget {
+  const _DataRow({
+    required this.emoji,
+    required this.title,
+    required this.items,
+    required this.subtle,
+  });
+  final String emoji;
+  final String title;
+  final List<String> items;
+  final bool subtle;
+
+  @override
+  Widget build(BuildContext context) {
+    final color = subtle ? Colors.grey.shade700 : Colors.blue.shade900;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Text(emoji, style: const TextStyle(fontSize: 14)),
+            const SizedBox(width: 6),
+            Text(
+              title,
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w700,
+                color: color,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 3),
+        for (final item in items)
+          Padding(
+            padding: const EdgeInsets.only(left: 22, top: 2),
+            child: Text(
+              '• $item',
+              style: TextStyle(
+                fontSize: 12.5,
+                color: color,
+                height: 1.35,
+              ),
+            ),
+          ),
+      ],
     );
   }
 }
