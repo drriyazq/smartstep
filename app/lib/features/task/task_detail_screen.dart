@@ -165,6 +165,7 @@ class TaskDetailScreen extends ConsumerWidget {
         context: context,
         isDismissible: false,
         enableDrag: false,
+        isScrollControlled: true,
         builder: (_) => _CelebrationSheet(
           childName: child.name,
           taskTitle: task.title,
@@ -283,7 +284,8 @@ class _CelebrationSheet extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return SafeArea(
-      child: Padding(
+      child: SingleChildScrollView(
+        child: Padding(
         padding: const EdgeInsets.fromLTRB(20, 28, 20, 20),
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -347,6 +349,7 @@ class _CelebrationSheet extends StatelessWidget {
               ),
             ),
           ],
+        ),
         ),
       ),
     );
