@@ -42,6 +42,12 @@ class Tag(models.Model):
         return f"{self.get_category_display()}: {self.name}"
 
 
+class SexFilter(models.TextChoices):
+    ANY = "any", "Any"
+    MALE = "male", "Male only"
+    FEMALE = "female", "Female only"
+
+
 class Task(models.Model):
     slug = models.SlugField(max_length=80, unique=True)
     title = models.CharField(max_length=140)
@@ -54,8 +60,14 @@ class Task(models.Model):
         blank=True,
         help_text="Markdown. Shown to parents only — why this skill matters and what benefits to expect.",
     )
+    sex_filter = models.CharField(
+        max_length=8,
+        choices=SexFilter.choices,
+        default=SexFilter.ANY,
+        help_text="Which sex this task applies to. 'Any' means suitable for all.",
+    )
     min_age = models.PositiveSmallIntegerField(default=7)
-    max_age = models.PositiveSmallIntegerField(default=11)
+    max_age = models.PositiveSmallIntegerField(default=13)
     environments = models.ManyToManyField(Environment, related_name="tasks", blank=True)
     tags = models.ManyToManyField(Tag, related_name="tasks", blank=True)
     status = models.CharField(

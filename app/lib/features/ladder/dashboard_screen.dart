@@ -12,12 +12,22 @@ import '../../domain/ladder.dart';
 import '../../domain/models.dart';
 import '../../providers.dart';
 
-// Auto-refreshes when the active child changes (different environment = new fetch).
+String _sexParam(Sex sex) => switch (sex) {
+      Sex.boy => "male",
+      Sex.girl => "female",
+      Sex.other => "any",
+    };
+
+// Auto-refreshes when the active child changes (different child = new fetch).
 final _catalogProvider = FutureProvider<List<Task>>((ref) async {
   final activeId = ref.watch(activeChildIdProvider);
   final child = HiveSetup.childBox.get(activeId)!;
+  final age = child.ageOn(DateTime.now());
   return ref.read(taskRepositoryProvider).fetchAll(
         environment: child.environment.name,
+        minAge: age,
+        maxAge: age,
+        sex: _sexParam(child.sex),
       );
 });
 
@@ -192,50 +202,87 @@ class DashboardScreen extends ConsumerWidget {
   }
 }
 
-class _LadderList extends StatelessWidget {
+class _LadderList extends StatefulWidget {
   const _LadderList({required this.tasks, required this.childId});
   final List<Task> tasks;
   final String childId;
 
   @override
+  State<_LadderList> createState() => _LadderListState();
+}
+
+class _LadderListState extends State<_LadderList> {
+  static const _nextUpLimit = 5;
+  bool _showAllNextUp = false;
+
+  @override
   Widget build(BuildContext context) {
+    final childId = widget.childId;
+    final tasks = widget.tasks;
+
     final progress = {
       for (final p in HiveSetup.progressBox.values
           .where((p) => p.childId == childId))
         p.taskSlug: p,
     };
+    // Used for warning prereq title lookup in lockedWithWarning classification
     final taskBySlug = {for (final t in tasks) t.slug: t};
 
-    // API tasks grouped by category
-    final grouped = <String, List<_TaskRow>>{};
+    // Classify every task into one of four buckets
+    final nextUpRows = <_TaskRow>[];       // unlocked / lockedWithWarning
+    final doneByCategory = <String, List<_TaskRow>>{};  // completed / satisfied
+    final skippedRows = <_TaskRow>[];      // skippedUnsuitable
+
     for (final t in tasks) {
       final state = computeLadderState(task: t, progressBySlug: progress);
-      String? warningTitle;
-      if (state == LadderState.lockedWithWarning) {
-        for (final p in t.prerequisites) {
-          if (!p.isMandatory) continue;
-          if (progress[p.taskSlug]?.softSkipped == true) {
-            warningTitle = taskBySlug[p.taskSlug]?.title;
-            break;
+      final prog = progress[t.slug];
+      final category = t.tags.isEmpty ? "other" : t.tags.first.category;
+
+      // Explicitly unsuitable — show in skipped section
+      if (prog?.status == ProgressStatus.skippedUnsuitable) {
+        skippedRows.add(_TaskRow(t, state));
+        continue;
+      }
+
+      if (state == LadderState.completed || state == LadderState.satisfied) {
+        doneByCategory.putIfAbsent(category, () => []).add(_TaskRow(t, state));
+        continue;
+      }
+
+      if (state == LadderState.unlocked || state == LadderState.lockedWithWarning) {
+        String? warningTitle;
+        if (state == LadderState.lockedWithWarning) {
+          for (final p in t.prerequisites) {
+            if (!p.isMandatory) continue;
+            if (progress[p.taskSlug]?.softSkipped == true) {
+              warningTitle = taskBySlug[p.taskSlug]?.title;
+              break;
+            }
           }
         }
+        nextUpRows.add(_TaskRow(t, state, warningPrereqTitle: warningTitle));
+        continue;
       }
-      final category = t.tags.isEmpty ? "other" : t.tags.first.category;
-      grouped
-          .putIfAbsent(category, () => [])
-          .add(_TaskRow(t, state, warningPrereqTitle: warningTitle));
+      // LadderState.locked with no explicit skip → hide
     }
-    for (final rows in grouped.values) {
-      rows.sort((a, b) => a.state.index.compareTo(b.state.index));
-    }
-    final categories = grouped.keys.toList()..sort();
 
-    // Custom tasks for this child
+    // Sort next up: unlocked first, then lockedWithWarning
+    nextUpRows.sort((a, b) => a.state.index.compareTo(b.state.index));
+
+    final visibleNextUp = _showAllNextUp
+        ? nextUpRows
+        : nextUpRows.take(_nextUpLimit).toList();
+    final hiddenCount = nextUpRows.length - visibleNextUp.length;
+
+    // Sorted category keys for done section
+    final doneCategories = doneByCategory.keys.toList()..sort();
+
+    // Custom tasks
     final customTasks = HiveSetup.customTaskBox.values
         .where((t) => t.childId == childId)
         .toList();
 
-    // Aggregate counts
+    // Progress totals
     final completedCount = progress.values
         .where((p) => p.status == ProgressStatus.completed)
         .length;
@@ -254,14 +301,60 @@ class _LadderList extends StatelessWidget {
           total: total,
         ),
         const SizedBox(height: 20),
-        for (final c in categories) ...[
-          _CategoryHeader(category: c, rows: grouped[c]!),
+
+        // ── Next Up ────────────────────────────────────────────
+        if (nextUpRows.isNotEmpty) ...[
+          _SectionHeader(
+            icon: Icons.rocket_launch_outlined,
+            label: "Next Up",
+            color: Theme.of(context).colorScheme.primary,
+            count: "${nextUpRows.length} available",
+          ),
           const SizedBox(height: 8),
-          ...grouped[c]!.map(
-            (row) => _buildTile(context, row, c, taskBySlug, progress),
+          ...visibleNextUp.map(
+            (row) => _buildTile(context, row, row.task.tags.isEmpty ? "other" : row.task.tags.first.category),
+          ),
+          if (hiddenCount > 0)
+            TextButton.icon(
+              onPressed: () => setState(() => _showAllNextUp = true),
+              icon: const Icon(Icons.expand_more, size: 18),
+              label: Text("$hiddenCount more available"),
+            )
+          else if (_showAllNextUp && nextUpRows.length > _nextUpLimit)
+            TextButton.icon(
+              onPressed: () => setState(() => _showAllNextUp = false),
+              icon: const Icon(Icons.expand_less, size: 18),
+              label: const Text("Show fewer"),
+            ),
+          const SizedBox(height: 20),
+        ],
+
+        // ── Completed & Mastered (by category) ────────────────
+        for (final c in doneCategories) ...[
+          _CategoryHeader(category: c, rows: doneByCategory[c]!),
+          const SizedBox(height: 8),
+          ...doneByCategory[c]!.map(
+            (row) => _buildTile(context, row, c),
           ),
           const SizedBox(height: 20),
         ],
+
+        // ── Skipped / Unsuitable ───────────────────────────────
+        if (skippedRows.isNotEmpty) ...[
+          _SectionHeader(
+            icon: Icons.block_outlined,
+            label: "Skipped",
+            color: Colors.grey.shade600,
+            count: "${skippedRows.length}",
+          ),
+          const SizedBox(height: 8),
+          ...skippedRows.map(
+            (row) => _buildTile(context, row, row.task.tags.isEmpty ? "other" : row.task.tags.first.category),
+          ),
+          const SizedBox(height: 20),
+        ],
+
+        // ── My Tasks (custom) ──────────────────────────────────
         if (customTasks.isNotEmpty) ...[
           _CustomCategoryHeader(tasks: customTasks, childId: childId),
           const SizedBox(height: 8),
@@ -273,19 +366,9 @@ class _LadderList extends StatelessWidget {
     );
   }
 
-  Widget _buildTile(
-    BuildContext context,
-    _TaskRow row,
-    String category,
-    Map<String, Task> taskBySlug,
-    Map<String, TaskProgress> progress,
-  ) {
+  Widget _buildTile(BuildContext context, _TaskRow row, String category) {
     final meta = _categoryMeta(category);
-    final isLocked = row.state == LadderState.locked;
-    final isInteractive = row.state == LadderState.unlocked ||
-        row.state == LadderState.lockedWithWarning ||
-        row.state == LadderState.completed ||
-        isLocked;
+    final isSkipped = row.state == LadderState.locked; // only skipped tasks reach here as locked
 
     final (icon, color) = switch (row.state) {
       LadderState.completed => (Icons.check_circle, Colors.green.shade600),
@@ -294,7 +377,7 @@ class _LadderList extends StatelessWidget {
       LadderState.unlocked => (Icons.play_circle_outline, meta.color),
       LadderState.lockedWithWarning =>
         (Icons.warning_amber_outlined, Colors.orange),
-      LadderState.locked => (Icons.lock_outline, Colors.grey.shade400),
+      LadderState.locked => (Icons.block_outlined, Colors.grey.shade400),
     };
 
     return Card(
@@ -304,8 +387,8 @@ class _LadderList extends StatelessWidget {
         title: Text(
           row.task.title,
           style: TextStyle(
-            fontWeight: isLocked ? FontWeight.normal : FontWeight.w500,
-            color: isLocked ? Colors.grey.shade500 : null,
+            fontWeight: FontWeight.w500,
+            color: isSkipped ? Colors.grey.shade500 : null,
           ),
         ),
         subtitle: Text(
@@ -317,23 +400,8 @@ class _LadderList extends StatelessWidget {
                 : null,
           ),
         ),
-        trailing: isInteractive
-            ? Icon(
-                isLocked ? Icons.info_outline : Icons.chevron_right,
-                color: Colors.grey.shade400,
-                size: 20,
-              )
-            : null,
-        onTap: isInteractive
-            ? () {
-                if (isLocked) {
-                  _showLockedInfo(
-                      context, row.task, taskBySlug, progress);
-                } else {
-                  context.push("/task/${row.task.slug}");
-                }
-              }
-            : null,
+        trailing: Icon(Icons.chevron_right, color: Colors.grey.shade400, size: 20),
+        onTap: () => context.push("/task/${row.task.slug}"),
       ),
     );
   }
@@ -369,68 +437,6 @@ class _LadderList extends StatelessWidget {
     );
   }
 
-  void _showLockedInfo(
-    BuildContext context,
-    Task task,
-    Map<String, Task> taskBySlug,
-    Map<String, TaskProgress> progress,
-  ) {
-    final mandatory = task.prerequisites.where((p) => p.isMandatory).toList();
-
-    showModalBottomSheet(
-      context: context,
-      builder: (_) => SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(20, 20, 20, 8),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Icon(Icons.lock_outline, color: Colors.grey.shade600),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Text(
-                      task.title,
-                      style: Theme.of(context)
-                          .textTheme
-                          .titleMedium
-                          ?.copyWith(fontWeight: FontWeight.bold),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 6),
-              Text(
-                mandatory.isEmpty
-                    ? "This skill has no prerequisites — it should be unlocked. Try refreshing."
-                    : "Complete these skills first to unlock it:",
-                style: Theme.of(context)
-                    .textTheme
-                    .bodySmall
-                    ?.copyWith(color: Colors.grey.shade600),
-              ),
-              if (mandatory.isNotEmpty) ...[
-                const SizedBox(height: 16),
-                for (final p in mandatory) ...[
-                  _PrereqRow(
-                    prereqTask: taskBySlug[p.taskSlug],
-                    slug: p.taskSlug,
-                    progress: progress[p.taskSlug],
-                  ),
-                  const SizedBox(height: 10),
-                ],
-              ],
-              const SizedBox(height: 8),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
   String _subtitle(_TaskRow row) => switch (row.state) {
         LadderState.completed => "Completed",
         LadderState.satisfied => "Already knows this",
@@ -438,63 +444,10 @@ class _LadderList extends StatelessWidget {
         LadderState.lockedWithWarning => row.warningPrereqTitle != null
             ? 'Needs: "${row.warningPrereqTitle}"'
             : "Requires a skipped skill",
-        LadderState.locked => "Tap to see what's needed",
+        LadderState.locked => "Skipped",
       };
 }
 
-class _PrereqRow extends StatelessWidget {
-  const _PrereqRow({
-    required this.prereqTask,
-    required this.slug,
-    required this.progress,
-  });
-  final Task? prereqTask;
-  final String slug;
-  final TaskProgress? progress;
-
-  @override
-  Widget build(BuildContext context) {
-    final isDone = progress?.satisfies == true;
-    final title = prereqTask?.title ?? slug;
-
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Icon(
-          isDone ? Icons.check_circle : Icons.radio_button_unchecked,
-          color: isDone ? Colors.green.shade600 : Colors.grey.shade400,
-          size: 22,
-        ),
-        const SizedBox(width: 10),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                title,
-                style: TextStyle(
-                  fontWeight: FontWeight.w500,
-                  color: isDone ? Colors.grey.shade500 : null,
-                  decoration:
-                      isDone ? TextDecoration.lineThrough : null,
-                ),
-              ),
-              Text(
-                isDone ? "Done" : "Not yet completed",
-                style: TextStyle(
-                  fontSize: 11,
-                  color: isDone
-                      ? Colors.green.shade600
-                      : Colors.orange.shade700,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-}
 
 class _ProgressCard extends StatelessWidget {
   const _ProgressCard({
@@ -555,6 +508,52 @@ class _ProgressCard extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+class _SectionHeader extends StatelessWidget {
+  const _SectionHeader({
+    required this.icon,
+    required this.label,
+    required this.color,
+    required this.count,
+  });
+  final IconData icon;
+  final String label;
+  final Color color;
+  final String count;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Container(
+          padding: const EdgeInsets.all(6),
+          decoration: BoxDecoration(
+            color: color.withOpacity(0.1),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Icon(icon, color: color, size: 18),
+        ),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Text(
+            label,
+            style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                  fontWeight: FontWeight.w700,
+                  color: color,
+                ),
+          ),
+        ),
+        Text(
+          count,
+          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                color: Colors.grey.shade600,
+                fontWeight: FontWeight.w500,
+              ),
+        ),
+      ],
     );
   }
 }

@@ -46,6 +46,9 @@ def task_list(request):
     environment = request.query_params.get("environment")
     if environment:
         qs = qs.filter(environments__kind=environment)
+    sex = request.query_params.get("sex")
+    if sex and sex != "any":
+        qs = qs.filter(sex_filter__in=["any", sex])
     min_age = request.query_params.get("min_age")
     max_age = request.query_params.get("max_age")
     if min_age:

@@ -144,7 +144,7 @@ class _RewardList extends StatelessWidget {
               ],
             ),
             const SizedBox(height: 8),
-            if (loading)
+            if (loading && !hasAnyRewards)
               const SizedBox(
                 height: 120,
                 child: Center(child: CircularProgressIndicator()),
@@ -274,28 +274,3 @@ class _RewardTile extends StatelessWidget {
   }
 }
 
-class _SkipOnly extends StatelessWidget {
-  const _SkipOnly({required this.message, required this.context});
-  final String message;
-  final BuildContext context;
-
-  @override
-  Widget build(BuildContext ctx) {
-    return SafeArea(
-      child: Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(message, style: TextStyle(color: Colors.grey.shade600)),
-            const SizedBox(height: 16),
-            FilledButton(
-              onPressed: () => Navigator.of(ctx).pop(""),
-              child: const Text("Complete without reward"),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}

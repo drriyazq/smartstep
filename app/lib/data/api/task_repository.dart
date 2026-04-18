@@ -14,6 +14,7 @@ class TaskRepository {
     String? environment,
     int? minAge,
     int? maxAge,
+    String? sex,
   }) async {
     final resp = await _dio.get<dynamic>(
       "/tasks/",
@@ -21,6 +22,7 @@ class TaskRepository {
         if (environment != null) "environment": environment,
         if (minAge != null) "min_age": minAge,
         if (maxAge != null) "max_age": maxAge,
+        if (sex != null && sex != "any") "sex": sex,
       },
     );
     final list = (resp.data as List).cast<Map<String, dynamic>>();
