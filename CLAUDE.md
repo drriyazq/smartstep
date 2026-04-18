@@ -9,33 +9,47 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ```bash
 cd /home/drriyazq/smartstep/backend
 
-# Run tests
-pytest                              # all tests
-pytest content/tests/               # single app
-pytest -k test_cycle_is_rejected    # single test
-pytest --cov=content                # with coverage
-
-# Lint / format
-ruff check .
-ruff format .
-
-# Dev server (SQLite unless DATABASE_URL is set)
+# Dev server
 DJANGO_SETTINGS_MODULE=smartstep.settings.dev venv/bin/python manage.py runserver 0.0.0.0:8001
 
 # Migrations
 DJANGO_SETTINGS_MODULE=smartstep.settings.dev venv/bin/python manage.py makemigrations
 DJANGO_SETTINGS_MODULE=smartstep.settings.dev venv/bin/python manage.py migrate
 
-# Seed commands (all idempotent — safe to re-run)
-DJANGO_SETTINGS_MODULE=smartstep.settings.dev venv/bin/python manage.py seed_demo          # 15 approved tasks + 7 reward items (original demo set)
-DJANGO_SETTINGS_MODULE=smartstep.settings.dev venv/bin/python manage.py seed_full_catalog  # 85 more tasks (pending review) + full reward bank
-DJANGO_SETTINGS_MODULE=smartstep.settings.dev venv/bin/python manage.py set_admin_password <username> <password>
+# Tests (picks up DJANGO_SETTINGS_MODULE from pyproject.toml automatically)
+pytest
+pytest content/tests/
+pytest -k test_cycle_is_rejected
+
+# Lint / format
+ruff check .
+ruff format .
+
+# Seed / catalog commands (all idempotent)
+DJANGO_SETTINGS_MODULE=smartstep.settings.dev venv/bin/python manage.py seed_demo
+DJANGO_SETTINGS_MODULE=smartstep.settings.dev venv/bin/python manage.py seed_full_catalog
+DJANGO_SETTINGS_MODULE=smartstep.settings.dev venv/bin/python manage.py expand_catalog      # extends ages, fills how-tos, approves pending tasks, adds 17 tasks
+DJANGO_SETTINGS_MODULE=smartstep.settings.dev venv/bin/python manage.py seed_social_catalog # adds 25 Social & Communication tasks
 
 # Django shell
 DJANGO_SETTINGS_MODULE=smartstep.settings.dev venv/bin/python manage.py shell
 ```
 
-`pytest` picks up `DJANGO_SETTINGS_MODULE=smartstep.settings.dev` from `pyproject.toml` — no env var needed for tests.
+Always use `venv/bin/python` — system `python` is not available on the VPS.
+
+### Flutter app
+
+```bash
+cd app
+flutter pub get        # needed after pubspec.yaml changes or new packages
+flutter run -d <device-id>
+flutter analyze
+flutter test           # runs app/test/ladder_test.dart
+```
+
+`flutter clean` is only needed when new Hive TypeAdapters are added (new `typeId` or new box). For `.dart` code changes, just `flutter run`.
+
+OTP is stubbed in dev — any phone number + `000000` logs in.
 
 ### Docker (full-stack local dev)
 
@@ -44,39 +58,25 @@ cd infra
 docker compose up --build
 # API: http://localhost:8000/api/v1/
 # Admin: http://localhost:8000/admin/  (admin / admin)
-# seed_demo runs automatically on first boot
 ```
-
-### Flutter app
-
-```bash
-cd app
-flutter pub get
-flutter run -d <android-emulator-id>
-flutter analyze
-flutter test                        # runs app/test/ladder_test.dart
-```
-
-OTP is stubbed in dev — any phone number + `000000` logs in.
 
 ---
 
 ## Deployment (Production — VPS 187.127.134.77)
 
-The backend is live, served via Django's `manage.py runserver` on port 8001 and proxied by Nginx.
+Backend is live on port 8001, proxied by Nginx at `https://areafair.in/smartstep-admin/`.
 
-**Admin panel URL:** `https://areafair.in/smartstep-admin/`
-**Screening page:** `https://areafair.in/smartstep-admin/content/task/screen/`
-**DAG graph:** `https://areafair.in/smartstep-admin/content/task/graph/`
-
-The Nginx block in `/etc/nginx/sites-enabled/areafair` proxies `/smartstep-admin/` → `http://127.0.0.1:8001/`.
-
-**Note:** Currently running as `manage.py runserver` (no Gunicorn service yet). To restart if it dies:
 ```bash
+# Restart if it dies
 cd /home/drriyazq/smartstep/backend
 DJANGO_SETTINGS_MODULE=smartstep.settings.dev nohup venv/bin/python manage.py runserver 0.0.0.0:8001 &
 ```
-Upgrade to Gunicorn + systemd service when ready (same pattern as suredatapro-new.service).
+
+**Admin:** `https://areafair.in/smartstep-admin/`
+**Task screening:** `https://areafair.in/smartstep-admin/content/task/screen/`
+**DAG graph:** `https://areafair.in/smartstep-admin/content/task/graph/`
+
+After any backend change, always `git push origin main` — the Windows sync script (`sync.bat`) pulls from GitHub, not the VPS directly.
 
 ---
 
@@ -84,13 +84,15 @@ Upgrade to Gunicorn + systemd service when ready (same pattern as suredatapro-ne
 
 ### Privacy boundary (hard constraint)
 
-All child PII (name, DOB, sex, environment preference, task progress) lives **on-device only** in Hive boxes. The server stores only the content graph and anonymous aggregate telemetry. Never add child identifiers to any server model or API response. This is the architectural decision that bypasses COPPA compliance requirements.
+All child PII (name, DOB, sex, environment, task progress) lives **on-device only** in Hive boxes. The server stores only the content graph and anonymous telemetry. Never add child identifiers to any server model or API response.
+
+---
 
 ### Backend (`backend/`) — Django 5 + DRF
 
 **Stack:** Django 5 · DRF · SimpleJWT · django-environ · WhiteNoise · SQLite (dev) / PostgreSQL (prod)
 
-Four apps:
+**Four apps:**
 
 | App | Owns |
 |-----|------|
@@ -99,111 +101,112 @@ Four apps:
 | `notifications` | `ScheduledNotification` |
 | `api` | DRF views, serializers, URL wiring |
 
-**Review workflow** — `ReviewStatus`: `draft → pending → approved → rejected`. Only `approved` rows are served by the public API. The Django admin has bulk actions for all transitions, plus a dedicated screening UI.
+**Task model key fields:** `slug`, `title`, `how_to_md`, `safety_md`, `parent_note_md`, `min_age`, `max_age`, `sex_filter` (any/male/female), `environments` (M2M), `tags` (M2M), `status` (ReviewStatus).
 
-**Task fields** — `slug`, `title`, `how_to_md`, `safety_md`, `parent_note_md` (why this skill matters — shown to parents in the app), `min_age`, `max_age`, `environments` (M2M to `Environment`), `tags` (M2M to `Tag`), `status`, `review_notes`.
+**Tag.Category choices:** `financial`, `household`, `digital`, `navigation`, `cognitive`, `social`. The category string is what the Flutter app uses to colour-code and icon tasks.
 
-**Tag model** — fields: `name`, `category`. The `category` field maps to the 5 task categories: `financial`, `household`, `digital`, `navigation`, `cognitive`. Tags in DB: "Money basics" (financial), "Home care" (household), "Kitchen basics" (household), "Digital literacy" (digital), "Wayfinding" (navigation), "Reasoning" (cognitive).
+**SexFilter** — `any`, `male`, `female` on each Task. API accepts `?sex=male|female` and filters with `sex_filter__in=["any", sex]`.
 
-**Environment model** — field: `kind` (choices: `urban`, `suburban`, `rural`). Tasks tagged with environments via M2M.
+**ReviewStatus workflow:** `draft → pending → approved → rejected`. Only `approved` rows are served by the public API.
 
-**RewardCategory model** — fields: `kind`, `display_name`. Three categories: `time` / `experience` / `material`.
-
-**RewardItem model** — fields: `title`, `category` (FK to RewardCategory), `min_age`, `max_age`, `is_free`, `notes`, `status`, `review_notes`.
-
-**DAG integrity** — `PrerequisiteEdge.save()` calls `full_clean()` which runs a DFS cycle check. Any edit that would close a cycle raises `ValidationError` immediately. Never bypass `save()` with `bulk_create` on edges.
-
-**Settings** — three layers: `base.py` (env-driven via `django-environ`) → `dev.py` / `prod.py`. Always use `venv/bin/python` — system `python` is not available on this VPS.
+**DAG integrity** — `PrerequisiteEdge.save()` calls `full_clean()` which runs a DFS cycle check. Never bypass `save()` with `bulk_create` on edges — it skips the cycle check.
 
 **URL layout** (flat, no namespaces):
-- `/admin/` — Django admin
-- `/admin/content/task/screen/` — custom task screening page (list + quick approve/reject/edit)
-- `/admin/content/task/screen/add/` — add new task
-- `/admin/content/task/screen/<pk>/` — edit task
-- `/admin/content/task/graph/` — Mermaid DAG visualisation (approved tasks only)
-- `/api/v1/tasks/` · `/api/v1/rewards/` · `/api/v1/notifications/active/` · `/api/v1/telemetry/task-completion/`
+- `/api/v1/tasks/` — supports `?environment=`, `?sex=`, `?min_age=`, `?max_age=`, `?tag=`
+- `/api/v1/rewards/` — supports `?age=`
+- `/api/v1/telemetry/task-completion/` — anonymous POST
 - `/api/v1/auth/dev-token/` — DEBUG-only JWT shortcut
+- `/admin/content/task/screen/` — custom screening UI
+- `/admin/content/task/graph/` — Mermaid DAG visualisation
 
-**Custom admin views** — wired via `TaskAdmin.get_urls()` in `content/admin.py`. The screening list handles quick-action POSTs (approve/reject/draft/delete) via `?status=` tab + search + category filter. The form view uses `TaskScreenForm` (a plain `forms.Form`, not a `ModelForm`) and honours a `save_action` POST param to override status on save.
+**Custom admin views** — wired via `TaskAdmin.get_urls()` in `content/admin.py`. The screening form uses `TaskScreenForm` (plain `forms.Form`, not `ModelForm`) and honours a `save_action` POST param to override status on save.
 
-### Current DB state (as of 2026-04-18)
-
-- **Tasks:** 100 total — 28 approved, 72 pending review
-- **Prerequisite edges:** 57
-- **Tags:** 6 (one per category except household which has 2)
-- **Environments:** urban, suburban, rural
+**Current DB state:**
+- **Tasks:** 142 total, all approved — cognitive (31), household (25), social (25), navigation (21), digital (20), financial (20)
+- **Prerequisite edges:** ~76
+- **Tags:** 7 (social tag added: "Social skills")
 - **Reward items:** 31 across 3 categories (time / experience / material)
-- **Scheduled notifications:** 0 (none created yet)
+
+---
 
 ### Flutter app (`app/`)
 
-**Stack:** Riverpod (state) · go_router (routing) · Hive (local storage) · Dio (HTTP) · flutter_markdown (content rendering)
+**Stack:** Riverpod · go_router · Hive · Dio · flutter_markdown · share_plus
 
-**Directory structure:**
+**Key files beyond what's obvious:**
 ```
 lib/
-  main.dart
-  app.dart               # go_router setup + redirect guard
+  app.dart                          # go_router + redirect guard
+  providers.dart                    # progressVersionProvider, activeChildIdProvider
   domain/
-    models.dart          # Task, RewardItem, ChildProfile domain models (hand-written fromJson)
-    ladder.dart          # computeLadderState() — pure DAG evaluation function
-    baseline.dart        # baseline assessment logic
+    ladder.dart                     # computeLadderState() — pure function, all DAG logic here
+    models.dart                     # Task, Reward domain models (hand-written fromJson)
   data/
-    api/
-      client.dart        # Dio HTTP client
-      task_repository.dart
-      reward_repository.dart
     local/
-      hive_setup.dart    # Hive box initialisation
-      child_profile.dart # ChildProfile Hive adapter
-      task_progress.dart # TaskProgress Hive adapter
-      reward_usage.dart  # RewardUsage Hive adapter
+      hive_setup.dart               # all box declarations + open() call
+      child_profile.dart            # ChildProfile + Sex + Environment enums
+      task_progress.dart            # TaskProgress + ProgressStatus enum
+      custom_reward.dart            # CustomReward (typeId=4)
+      custom_task.dart              # CustomTask (typeId=5), has progressSlug getter
+      active_child.dart             # activeChildIdProvider + setActiveChild()
   features/
-    onboarding/
-      phone_screen.dart
-      child_profile_screen.dart
-      environment_screen.dart
-      baseline_screen.dart
-    ladder/
-      dashboard_screen.dart
-    task/
-      task_detail_screen.dart
-      reward_picker_sheet.dart
+    ladder/dashboard_screen.dart    # main screen — _LadderListState, _ProgressCard
+    task/task_detail_screen.dart    # completion flow + _CelebrationSheet
+    task/reward_picker_sheet.dart   # reward selection bottom sheet
+    task/custom_task_detail_screen.dart
+    profile/profile_screen.dart     # settings, custom tasks/rewards, logout, share
 ```
 
-**Hive boxes** (initialised in `data/local/hive_setup.dart`):
-- `childBox` — `ChildProfile` (name, dob, sex, environment)
-- `progressBox` — `TaskProgress` keyed `childId::taskSlug`
-- `rewardUsageBox` — `RewardUsage` (tracks reward category history for rotation nudging)
-- `sessionBox` — generic session data (JWT token)
+**Hive boxes** (all opened in `hive_setup.dart`):
 
-**Onboarding flow** (routes in `app.dart`):
-`/phone` → `/onboarding/child` → `/onboarding/environment` → `/onboarding/baseline` → `/dashboard`
+| Box | Type | Key | TypeId |
+|-----|------|-----|--------|
+| `childBox` | `ChildProfile` | child id (uuid string) | 1 |
+| `progressBox` | `TaskProgress` | `childId::taskSlug` | 2 |
+| `rewardUsageBox` | `RewardUsage` | auto | 3 |
+| `customRewardBox` | `CustomReward` | millisecondsSinceEpoch string | 4 |
+| `customTaskBox` | `CustomTask` | millisecondsSinceEpoch string | 5 |
+| `sessionBox` | dynamic | arbitrary string | — |
 
-Redirect guard: `childBox.isNotEmpty` skips onboarding to `/dashboard`; empty box redirects away from `/dashboard` to `/phone`.
+`sessionBox` stores JWT tokens and reward titles keyed as `reward::{childId}::{taskSlug}`.
 
-**Ladder logic** — `domain/ladder.dart` exports `computeLadderState()`, a pure function. All prerequisite evaluation lives here — no business logic in widgets. `LadderState` enum: `unlocked`, `lockedWithWarning`, `locked`, `completed`, `satisfied`.
+**Redirect guard** — `childBox.isNotEmpty` → `/dashboard`; empty → `/phone`. Logout clears all boxes and calls `context.go('/phone')`.
 
-**`ProgressStatus` semantics** (critical for `computeLadderState`):
-- `completed` / `bypassed` → `satisfies = true` — fully clears a mandatory prereq
-- `skippedKnown` → `softSkipped = true` — triggers `lockedWithWarning` downstream (task is tappable but flagged)
-- `skippedUnsuitable` → hard lock on downstream tasks
+**`progressVersionProvider`** (StateProvider<int>) — increment it after any Hive write to trigger dashboard rebuild. Every widget that needs reactivity should `ref.watch(progressVersionProvider)`.
 
-**`_TaskRow.warningPrereqTitle`** — `dashboard_screen.dart` resolves the specific skipped prereq title at build time (by walking `task.prerequisites` against progress) and stores it in `_TaskRow`. The subtitle reads `'Requires skipped: "<title>"'` rather than the generic fallback.
+**`activeChildIdProvider`** — the currently selected child's id. Use `setActiveChild()` from `active_child.dart` to change it (persists to sessionBox).
 
-**Content rendering** — `how_to_md`, `safety_md`, and `parent_note_md` are all Markdown. Use `MarkdownBody` from `flutter_markdown` everywhere — never `Text()` for these fields.
+**Ladder classification logic** (in `_LadderListState.build()`):
+1. `skippedUnsuitable` progress → **Skipped** section (always visible)
+2. `LadderState.completed` or `satisfied` → **done by category** section
+3. `unlocked` or `lockedWithWarning`:
+   - No prerequisites AND above child's age → **hidden** (age gates the start of the ladder)
+   - Otherwise → **Next Up** section (max 5 visible, expand button for more), with `isAboveAge` badge if unlocked via prereqs despite age
+4. `locked` with no explicit skip → **hidden entirely**
 
-**API client** — `data/api/client.dart` (Dio). Repositories in `data/api/`: manual JSON parsing, no codegen (`freezed`/`json_serializable` not used). Domain models in `domain/models.dart` with hand-written `fromJson` factories.
+**Age filtering** — Age is NOT sent to the API. All tasks for the child's sex + environment are fetched. Age logic runs in Flutter during ladder classification (see above). This allows tasks unlocked via prerequisites to appear even if above the child's age.
 
-### Infra (`infra/`)
+**`computeLadderState()`** — pure function in `domain/ladder.dart`. Takes a `Task` and `Map<String, TaskProgress>`. Returns `LadderState`. All prerequisite evaluation lives here — no business logic in widgets.
 
-`docker-compose.yml` brings up Postgres + Django. Local port overrides go in `docker-compose.override.yml` (gitignored).
+**`ProgressStatus` semantics:**
+- `completed` / `bypassed` → `satisfies = true` (clears mandatory prereq)
+- `skippedKnown` → `softSkipped = true` → `LadderState.satisfied` (treated as "already mastered")
+- `skippedUnsuitable` → `LadderState.locked` but shown in Skipped section
+
+**Custom tasks** use `progressSlug = 'custom::$id'` as the Hive key suffix — same `progressBox` as API tasks.
+
+**Post-completion share** — `_CelebrationSheet` in `task_detail_screen.dart` shows a pre-filled achievement message using `share_plus`. Parents can post to WhatsApp, Instagram, Facebook, etc.
+
+**Content rendering** — `how_to_md`, `safety_md`, `parent_note_md` are Markdown. Always use `MarkdownBody` from `flutter_markdown`, never `Text()`.
+
+**Routes** (in `app.dart`):
+- `/phone` → `/onboarding/child` → `/onboarding/environment` → `/onboarding/baseline` → `/dashboard`
+- `/dashboard`, `/profile`, `/task/:slug`, `/custom-task/:id`
 
 ---
 
 ## What is NOT yet done
 
-- Push notifications: `ScheduledNotification` model exists but no sending mechanism wired up
-- Gunicorn + systemd service for production (currently `manage.py runserver`)
-- Reward picker fully wired to task completion flow (sheet exists, integration TBD)
-- Baseline assessment scoring logic (screen scaffolded, auto-mark-complete logic TBD)
+- Push notifications: `ScheduledNotification` model exists, no send mechanism yet
+- Baseline assessment: screen scaffolded, auto-mark-complete scoring logic not implemented
+- Gunicorn + systemd service for production backend (currently `manage.py runserver`)
