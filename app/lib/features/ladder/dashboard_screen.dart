@@ -11,11 +11,8 @@ import '../../domain/models.dart';
 
 final _catalogProvider = FutureProvider<List<Task>>((ref) async {
   final child = HiveSetup.childBox.values.first;
-  final age = child.ageOn(DateTime.now());
   return ref.read(taskRepositoryProvider).fetchAll(
         environment: child.environment.name,
-        minAge: age,
-        maxAge: age,
       );
 });
 
