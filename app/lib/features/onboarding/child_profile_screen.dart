@@ -70,8 +70,8 @@ class _State extends ConsumerState<ChildProfileScreen> {
     final picked = await showDatePicker(
       context: context,
       initialDate: DateTime(now.year - 9, now.month, now.day),
-      firstDate: DateTime(now.year - 13),
-      lastDate: DateTime(now.year - 6),
+      firstDate: DateTime(now.year - 16),
+      lastDate: DateTime(now.year - 5),
     );
     if (picked != null) setState(() => _dob = picked);
   }
