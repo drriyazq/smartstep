@@ -43,9 +43,13 @@ class TaskDetailScreen extends ConsumerWidget {
     final progressKey = TaskProgress.key(child.id, task.slug);
     final existing = HiveSetup.progressBox.get(progressKey);
 
-    // Retrieve stored reward title if the task was completed.
     final rewardKey = 'reward::${child.id}::${task.slug}';
     final savedReward = HiveSetup.sessionBox.get(rewardKey) as String?;
+
+    final countKey = 'count::${child.id}::${task.slug}';
+    final practiceCount = (HiveSetup.sessionBox.get(countKey) as int?) ?? 0;
+    final isFullyDone = existing?.status == ProgressStatus.completed;
+    final required = task.repetitionsRequired;
 
     return Scaffold(
       appBar: AppBar(title: Text(task.title)),
@@ -70,21 +74,26 @@ class TaskDetailScreen extends ConsumerWidget {
             _ParentNoteCard(content: task.parentNoteMd),
           ],
           const SizedBox(height: 32),
-          if (existing?.status == ProgressStatus.completed)
+          if (isFullyDone)
             Card(
               child: ListTile(
                 leading: const Icon(Icons.check_circle, color: Colors.green),
-                title: const Text("Already Completed"),
+                title: const Text("Skill Mastered"),
                 subtitle: savedReward != null && savedReward.isNotEmpty
-                    ? Text("Reward: $savedReward",
+                    ? Text("Last reward: $savedReward",
                         style: TextStyle(color: Colors.green.shade700))
                     : null,
               ),
             )
           else ...[
+            // Practice progress bar
+            if (required > 1) ...[
+              _PracticeProgress(done: practiceCount, total: required),
+              const SizedBox(height: 16),
+            ],
             FilledButton.icon(
               icon: const Icon(Icons.check),
-              label: const Text("Mark Complete"),
+              label: Text(practiceCount == 0 ? "Mark as Practiced" : "Practice Again"),
               onPressed: () => _markComplete(context, ref, task, child.id),
             ),
             const SizedBox(height: 8),
@@ -130,28 +139,32 @@ class TaskDetailScreen extends ConsumerWidget {
       isScrollControlled: true,
       builder: (_) => RewardPickerSheet(childId: childId),
     );
-    // null = sheet dismissed without choosing; empty string = "skip reward"
     if (reward == null) return;
 
-    final key = TaskProgress.key(childId, task.slug);
-    await HiveSetup.progressBox.put(
-      key,
-      TaskProgress(
-        taskSlug: task.slug,
-        childId: childId,
-        status: ProgressStatus.completed,
-        completedAt: DateTime.now(),
-      ),
-    );
+    final countKey = 'count::$childId::${task.slug}';
+    final newCount = ((HiveSetup.sessionBox.get(countKey) as int?) ?? 0) + 1;
+    await HiveSetup.sessionBox.put(countKey, newCount);
 
-    // Store the reward title so the detail screen can show it later.
     final rewardKey = 'reward::$childId::${task.slug}';
     await HiveSetup.sessionBox.put(rewardKey, reward);
 
-    // Signal the dashboard to rebuild.
+    final isFullyDone = newCount >= task.repetitionsRequired;
+
+    if (isFullyDone) {
+      final key = TaskProgress.key(childId, task.slug);
+      await HiveSetup.progressBox.put(
+        key,
+        TaskProgress(
+          taskSlug: task.slug,
+          childId: childId,
+          status: ProgressStatus.completed,
+          completedAt: DateTime.now(),
+        ),
+      );
+    }
+
     ref.read(progressVersionProvider.notifier).state++;
 
-    // Fire-and-forget telemetry — anonymous.
     unawaited(ref.read(_postCompletionProvider((
       taskSlug: task.slug,
       ageBand: child.ageBand(DateTime.now()),
@@ -159,8 +172,9 @@ class TaskDetailScreen extends ConsumerWidget {
     )).future));
 
     if (context.mounted) {
-      // Show celebration & share sheet
-      final shareMsg = _buildShareMessage(child.name, task.title, reward);
+      final shareMsg = isFullyDone
+          ? _buildShareMessage(child.name, task.title, reward)
+          : "";
       await showModalBottomSheet(
         context: context,
         isDismissible: false,
@@ -171,9 +185,12 @@ class TaskDetailScreen extends ConsumerWidget {
           taskTitle: task.title,
           reward: reward,
           shareMessage: shareMsg,
+          practiceNumber: newCount,
+          totalRequired: task.repetitionsRequired,
+          isFullyDone: isFullyDone,
         ),
       );
-      if (context.mounted) context.pop();
+      if (context.mounted && isFullyDone) context.pop();
     }
   }
 
@@ -198,11 +215,63 @@ class TaskDetailScreen extends ConsumerWidget {
       key,
       TaskProgress(taskSlug: task.slug, childId: childId, status: status),
     );
-
-    // Signal the dashboard to rebuild.
     ref.read(progressVersionProvider.notifier).state++;
-
     if (context.mounted) context.pop();
+  }
+}
+
+class _PracticeProgress extends StatelessWidget {
+  const _PracticeProgress({required this.done, required this.total});
+  final int done;
+  final int total;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: Colors.blue.shade50,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.blue.shade100),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.repeat_outlined, size: 16, color: Colors.blue.shade700),
+              const SizedBox(width: 6),
+              Text(
+                done == 0
+                    ? "Needs $total practice sessions to master"
+                    : "Practiced $done of $total times",
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.blue.shade800,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Row(
+            children: List.generate(total, (i) {
+              final filled = i < done;
+              return Expanded(
+                child: Container(
+                  margin: EdgeInsets.only(right: i < total - 1 ? 4 : 0),
+                  height: 8,
+                  decoration: BoxDecoration(
+                    color: filled ? Colors.blue.shade500 : Colors.blue.shade100,
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                ),
+              );
+            }),
+          ),
+        ],
+      ),
+    );
   }
 }
 
@@ -275,81 +344,115 @@ class _CelebrationSheet extends StatelessWidget {
     required this.taskTitle,
     required this.reward,
     required this.shareMessage,
+    required this.practiceNumber,
+    required this.totalRequired,
+    required this.isFullyDone,
   });
   final String childName;
   final String taskTitle;
   final String reward;
   final String shareMessage;
+  final int practiceNumber;
+  final int totalRequired;
+  final bool isFullyDone;
 
   @override
   Widget build(BuildContext context) {
+    final remaining = totalRequired - practiceNumber;
+
     return SafeArea(
       child: SingleChildScrollView(
         child: Padding(
-        padding: const EdgeInsets.fromLTRB(20, 28, 20, 20),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Text("🎉", style: TextStyle(fontSize: 48)),
-            const SizedBox(height: 12),
-            Text(
-              "$childName completed a skill!",
-              style: Theme.of(context)
-                  .textTheme
-                  .titleLarge
-                  ?.copyWith(fontWeight: FontWeight.bold),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 6),
-            Text(
-              taskTitle,
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: Colors.grey.shade600,
-                  ),
-              textAlign: TextAlign.center,
-            ),
-            if (reward.isNotEmpty) ...[
-              const SizedBox(height: 4),
+          padding: const EdgeInsets.fromLTRB(20, 28, 20, 20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
               Text(
-                "🎁 Reward: $reward",
-                style: TextStyle(
-                  color: Colors.green.shade700,
-                  fontWeight: FontWeight.w500,
+                isFullyDone ? "🎉" : "✅",
+                style: const TextStyle(fontSize: 48),
+              ),
+              const SizedBox(height: 12),
+              Text(
+                isFullyDone
+                    ? "$childName mastered a skill!"
+                    : "Practice #$practiceNumber done!",
+                style: Theme.of(context)
+                    .textTheme
+                    .titleLarge
+                    ?.copyWith(fontWeight: FontWeight.bold),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 6),
+              Text(
+                taskTitle,
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      color: Colors.grey.shade600,
+                    ),
+                textAlign: TextAlign.center,
+              ),
+              if (reward.isNotEmpty) ...[
+                const SizedBox(height: 4),
+                Text(
+                  "🎁 Reward: $reward",
+                  style: TextStyle(
+                    color: Colors.green.shade700,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ],
+              if (!isFullyDone) ...[
+                const SizedBox(height: 16),
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+                  decoration: BoxDecoration(
+                    color: Colors.blue.shade50,
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Text(
+                    "$remaining more ${remaining == 1 ? 'session' : 'sessions'} to master this skill.",
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      color: Colors.blue.shade800,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ),
+              ],
+              if (isFullyDone) ...[
+                const SizedBox(height: 24),
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(
+                    color: Colors.grey.shade100,
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Text(
+                    shareMessage,
+                    style: const TextStyle(fontSize: 13),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                SizedBox(
+                  width: double.infinity,
+                  child: FilledButton.icon(
+                    icon: const Icon(Icons.share_outlined),
+                    label: const Text("Share on WhatsApp / Social Media"),
+                    onPressed: () => Share.share(shareMessage),
+                  ),
+                ),
+              ],
+              const SizedBox(height: 8),
+              SizedBox(
+                width: double.infinity,
+                child: TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text("Close"),
                 ),
               ),
             ],
-            const SizedBox(height: 24),
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(14),
-              decoration: BoxDecoration(
-                color: Colors.grey.shade100,
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: Text(
-                shareMessage,
-                style: const TextStyle(fontSize: 13),
-              ),
-            ),
-            const SizedBox(height: 16),
-            SizedBox(
-              width: double.infinity,
-              child: FilledButton.icon(
-                icon: const Icon(Icons.share_outlined),
-                label: const Text("Share on WhatsApp / Social Media"),
-                onPressed: () => Share.share(shareMessage),
-              ),
-            ),
-            const SizedBox(height: 8),
-            SizedBox(
-              width: double.infinity,
-              child: TextButton(
-                onPressed: () => Navigator.pop(context),
-                child: const Text("Close"),
-              ),
-            ),
-          ],
-        ),
+          ),
         ),
       ),
     );

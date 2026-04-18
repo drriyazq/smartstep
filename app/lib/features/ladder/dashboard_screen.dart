@@ -420,6 +420,12 @@ class _LadderListState extends State<_LadderList> {
   Widget _buildTile(BuildContext context, _TaskRow row, String category) {
     final meta = _categoryMeta(category);
     final isSkipped = row.state == LadderState.locked;
+    final countKey = 'count::${widget.childId}::${row.task.slug}';
+    final practiceCount = (HiveSetup.sessionBox.get(countKey) as int?) ?? 0;
+    final showPracticeProgress = practiceCount > 0 &&
+        row.state != LadderState.completed &&
+        row.state != LadderState.satisfied &&
+        row.task.repetitionsRequired > 1;
 
     final (icon, color) = switch (row.state) {
       LadderState.completed => (Icons.check_circle, Colors.green.shade600),
@@ -471,16 +477,20 @@ class _LadderListState extends State<_LadderList> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              row.isAboveAge && (row.state == LadderState.unlocked || row.state == LadderState.lockedWithWarning)
-                  ? "Above their age — impressive!"
-                  : _subtitle(row),
+              showPracticeProgress
+                  ? "Practiced $practiceCount of ${row.task.repetitionsRequired} times"
+                  : row.isAboveAge && (row.state == LadderState.unlocked || row.state == LadderState.lockedWithWarning)
+                      ? "Above their age — impressive!"
+                      : _subtitle(row),
               style: TextStyle(
                 fontSize: 12,
-                color: row.isAboveAge
-                    ? Colors.amber.shade700
-                    : row.state == LadderState.lockedWithWarning
-                        ? Colors.orange.shade700
-                        : null,
+                color: showPracticeProgress
+                    ? Colors.blue.shade700
+                    : row.isAboveAge
+                        ? Colors.amber.shade700
+                        : row.state == LadderState.lockedWithWarning
+                            ? Colors.orange.shade700
+                            : null,
               ),
             ),
             const SizedBox(height: 4),

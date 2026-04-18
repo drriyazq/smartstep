@@ -37,6 +37,7 @@ class TaskSerializer(serializers.ModelSerializer):
             "parent_note_md",
             "min_age",
             "max_age",
+            "repetitions_required",
             "environments",
             "tags",
             "prerequisites",

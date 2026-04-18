@@ -35,6 +35,7 @@ class Task {
     required this.parentNoteMd,
     required this.minAge,
     required this.maxAge,
+    required this.repetitionsRequired,
     required this.environments,
     required this.tags,
     required this.prerequisites,
@@ -48,6 +49,7 @@ class Task {
   final String parentNoteMd;
   final int minAge;
   final int maxAge;
+  final int repetitionsRequired;
   final List<String> environments;
   final List<Tag> tags;
   final List<Prerequisite> prerequisites;
@@ -61,6 +63,7 @@ class Task {
         parentNoteMd: (j["parent_note_md"] as String?) ?? "",
         minAge: j["min_age"] as int,
         maxAge: j["max_age"] as int,
+        repetitionsRequired: (j["repetitions_required"] as int?) ?? 3,
         environments:
             (j["environments"] as List? ?? const []).cast<String>(),
         tags: (j["tags"] as List? ?? const [])

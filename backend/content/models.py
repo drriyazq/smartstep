@@ -77,6 +77,10 @@ class Task(models.Model):
         default=ReviewStatus.DRAFT,
         db_index=True,
     )
+    repetitions_required = models.PositiveSmallIntegerField(
+        default=3,
+        help_text="How many times the child must complete this task before it is marked done.",
+    )
     review_notes = models.TextField(blank=True, help_text="Internal reviewer notes.")
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
