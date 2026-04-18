@@ -554,6 +554,90 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
           ),
           const SizedBox(height: 32),
 
+          // ── Customise ─────────────────────────────────────────────
+          const Divider(),
+          const SizedBox(height: 16),
+          Row(
+            children: [
+              Expanded(
+                child: _QuickActionCard(
+                  icon: Icons.card_giftcard_outlined,
+                  label: "Custom Rewards",
+                  color: Colors.deepPurple,
+                  onTap: _addCustomReward,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: _QuickActionCard(
+                  icon: Icons.add_task,
+                  label: "Custom Tasks",
+                  color: const Color(0xFF880E4F),
+                  onTap: _addCustomTask,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+
+          // Custom rewards list
+          if (customRewards.isNotEmpty) ...[
+            for (final r in customRewards)
+              Card(
+                margin: const EdgeInsets.only(bottom: 6),
+                child: ListTile(
+                  leading: const Icon(Icons.card_giftcard_outlined,
+                      color: Colors.deepPurple, size: 20),
+                  title: Text(r.title),
+                  subtitle: r.notes.isNotEmpty ? Text(r.notes) : null,
+                  trailing: IconButton(
+                    icon: Icon(Icons.delete_outline, color: cs.error, size: 20),
+                    onPressed: () => _deleteCustomReward(r.id),
+                  ),
+                ),
+              ),
+            const SizedBox(height: 8),
+          ],
+
+          // Custom tasks list
+          if (customTasks.isNotEmpty) ...[
+            for (final t in customTasks)
+              Card(
+                margin: const EdgeInsets.only(bottom: 6),
+                child: ListTile(
+                  leading: const Icon(Icons.star_outline,
+                      color: Color(0xFF880E4F), size: 20),
+                  title: Text(t.title),
+                  subtitle: t.howToMd.isNotEmpty
+                      ? Text(
+                          t.howToMd,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(fontSize: 12),
+                        )
+                      : null,
+                  trailing: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      IconButton(
+                        icon: const Icon(Icons.edit_outlined,
+                            size: 20, color: Colors.grey),
+                        onPressed: () => _editCustomTask(t),
+                      ),
+                      IconButton(
+                        icon: Icon(Icons.delete_outline,
+                            color: cs.error, size: 20),
+                        onPressed: () => _deleteCustomTask(t),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            const SizedBox(height: 8),
+          ],
+          const Divider(),
+          const SizedBox(height: 16),
+
           // ── All children ──────────────────────────────────────────
           Text(
             "Children on this device",
@@ -604,136 +688,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
             label: const Text("Add another child"),
             onPressed: () => context.push('/onboarding/child?adding=true'),
           ),
-          const SizedBox(height: 32),
-
-          // ── Custom Rewards ────────────────────────────────────────
-          Row(
-            children: [
-              Expanded(
-                child: Text(
-                  "Custom Rewards",
-                  style: Theme.of(context)
-                      .textTheme
-                      .titleMedium
-                      ?.copyWith(fontWeight: FontWeight.w700),
-                ),
-              ),
-              TextButton.icon(
-                icon: const Icon(Icons.add, size: 16),
-                label: const Text("Add"),
-                onPressed: _addCustomReward,
-              ),
-            ],
-          ),
-          const SizedBox(height: 4),
-          Text(
-            "These appear in the reward picker alongside the built-in rewards.",
-            style: Theme.of(context)
-                .textTheme
-                .bodySmall
-                ?.copyWith(color: Colors.grey.shade600),
-          ),
-          const SizedBox(height: 8),
-          if (customRewards.isEmpty)
-            Padding(
-              padding: const EdgeInsets.symmetric(vertical: 8),
-              child: Text(
-                "No custom rewards yet.",
-                style: TextStyle(color: Colors.grey.shade500),
-              ),
-            )
-          else
-            for (final r in customRewards)
-              Card(
-                margin: const EdgeInsets.only(bottom: 6),
-                child: ListTile(
-                  title: Text(r.title),
-                  subtitle: r.notes.isNotEmpty ? Text(r.notes) : null,
-                  trailing: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      if (!r.isFree)
-                        const Icon(Icons.attach_money,
-                            size: 16, color: Colors.grey),
-                      IconButton(
-                        icon: Icon(Icons.delete_outline,
-                            color: cs.error, size: 20),
-                        onPressed: () => _deleteCustomReward(r.id),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-          const SizedBox(height: 32),
-
-          // ── Custom Tasks ──────────────────────────────────────────
-          Row(
-            children: [
-              Expanded(
-                child: Text(
-                  "My Custom Tasks",
-                  style: Theme.of(context)
-                      .textTheme
-                      .titleMedium
-                      ?.copyWith(fontWeight: FontWeight.w700),
-                ),
-              ),
-              TextButton.icon(
-                icon: const Icon(Icons.add, size: 16),
-                label: const Text("Add"),
-                onPressed: _addCustomTask,
-              ),
-            ],
-          ),
-          const SizedBox(height: 4),
-          Text(
-            "Custom tasks appear in a \"My Tasks\" section on the dashboard.",
-            style: Theme.of(context)
-                .textTheme
-                .bodySmall
-                ?.copyWith(color: Colors.grey.shade600),
-          ),
-          const SizedBox(height: 8),
-          if (customTasks.isEmpty)
-            Padding(
-              padding: const EdgeInsets.symmetric(vertical: 8),
-              child: Text(
-                "No custom tasks yet.",
-                style: TextStyle(color: Colors.grey.shade500),
-              ),
-            )
-          else
-            for (final t in customTasks)
-              Card(
-                margin: const EdgeInsets.only(bottom: 6),
-                child: ListTile(
-                  title: Text(t.title),
-                  subtitle: t.howToMd.isNotEmpty
-                      ? Text(
-                          t.howToMd,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(fontSize: 12),
-                        )
-                      : null,
-                  trailing: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      IconButton(
-                        icon: const Icon(Icons.edit_outlined,
-                            size: 20, color: Colors.grey),
-                        onPressed: () => _editCustomTask(t),
-                      ),
-                      IconButton(
-                        icon: Icon(Icons.delete_outline,
-                            color: cs.error, size: 20),
-                        onPressed: () => _deleteCustomTask(t),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-          const SizedBox(height: 32),
+          const SizedBox(height: 16),
 
           // ── Danger zone ───────────────────────────────────────────
           const Divider(),
@@ -768,6 +723,54 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
         Environment.suburban => "Quieter streets, mostly walkable",
         Environment.rural => "Countryside or small village",
       };
+}
+
+class _QuickActionCard extends StatelessWidget {
+  const _QuickActionCard({
+    required this.icon,
+    required this.label,
+    required this.color,
+    required this.onTap,
+  });
+  final IconData icon;
+  final String label;
+  final Color color;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(12),
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 12),
+        decoration: BoxDecoration(
+          color: color.withOpacity(0.08),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: color.withOpacity(0.25)),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(icon, color: color, size: 22),
+            const SizedBox(width: 8),
+            Flexible(
+              child: Text(
+                label,
+                style: TextStyle(
+                  color: color,
+                  fontWeight: FontWeight.w600,
+                  fontSize: 13,
+                ),
+              ),
+            ),
+            const SizedBox(width: 4),
+            Icon(Icons.add_circle_outline, color: color, size: 16),
+          ],
+        ),
+      ),
+    );
+  }
 }
 
 class _StatChip extends StatelessWidget {
