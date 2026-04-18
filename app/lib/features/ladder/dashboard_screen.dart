@@ -78,7 +78,12 @@ class DashboardScreen extends ConsumerWidget {
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Text("${child.name}'s Ladder"),
+              Flexible(
+                child: Text(
+                  "${child.name}'s Ladder",
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
               if (hasMultiple) ...[
                 const SizedBox(width: 4),
                 const Icon(Icons.keyboard_arrow_down, size: 20),
