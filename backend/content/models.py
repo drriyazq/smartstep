@@ -31,6 +31,7 @@ class Tag(models.Model):
         DIGITAL = "digital", "Digital"
         NAVIGATION = "navigation", "Navigation"
         COGNITIVE = "cognitive", "Cognitive"
+        SOCIAL = "social", "Social"
 
     name = models.CharField(max_length=64, unique=True)
     category = models.CharField(max_length=16, choices=Category.choices)

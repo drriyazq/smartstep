@@ -18,15 +18,14 @@ String _sexParam(Sex sex) => switch (sex) {
       Sex.other => "any",
     };
 
-// Auto-refreshes when the active child changes (different child = new fetch).
+// Fetches all tasks for this child's environment and sex.
+// Age filtering happens in Flutter, not the API, so that tasks unlocked via
+// prerequisites always appear regardless of the child's age.
 final _catalogProvider = FutureProvider<List<Task>>((ref) async {
   final activeId = ref.watch(activeChildIdProvider);
   final child = HiveSetup.childBox.get(activeId)!;
-  final age = child.ageOn(DateTime.now());
   return ref.read(taskRepositoryProvider).fetchAll(
         environment: child.environment.name,
-        minAge: age,
-        maxAge: age,
         sex: _sexParam(child.sex),
       );
 });
@@ -57,6 +56,11 @@ final _catalogProvider = FutureProvider<List<Task>>((ref) async {
           icon: Icons.lightbulb_outlined,
           label: 'Thinking',
           color: const Color(0xFF00695C),
+        ),
+      'social' => (
+          icon: Icons.people_outlined,
+          label: 'Social',
+          color: const Color(0xFFC62828),
         ),
       'custom' => (
           icon: Icons.star_outline,
@@ -219,6 +223,8 @@ class _LadderListState extends State<_LadderList> {
   Widget build(BuildContext context) {
     final childId = widget.childId;
     final tasks = widget.tasks;
+    final child = HiveSetup.childBox.get(childId)!;
+    final childAge = child.ageOn(DateTime.now());
 
     final progress = {
       for (final p in HiveSetup.progressBox.values
@@ -237,6 +243,8 @@ class _LadderListState extends State<_LadderList> {
       final state = computeLadderState(task: t, progressBySlug: progress);
       final prog = progress[t.slug];
       final category = t.tags.isEmpty ? "other" : t.tags.first.category;
+      final isAboveAge = t.minAge > childAge;
+      final hasPrereqs = t.prerequisites.isNotEmpty;
 
       // Explicitly unsuitable — show in skipped section
       if (prog?.status == ProgressStatus.skippedUnsuitable) {
@@ -250,6 +258,10 @@ class _LadderListState extends State<_LadderList> {
       }
 
       if (state == LadderState.unlocked || state == LadderState.lockedWithWarning) {
+        // Standalone tasks (no prerequisites) above the child's age are hidden —
+        // age acts as a gate at the start of the ladder only.
+        if (!hasPrereqs && isAboveAge) continue;
+
         String? warningTitle;
         if (state == LadderState.lockedWithWarning) {
           for (final p in t.prerequisites) {
@@ -260,7 +272,11 @@ class _LadderListState extends State<_LadderList> {
             }
           }
         }
-        nextUpRows.add(_TaskRow(t, state, warningPrereqTitle: warningTitle));
+        // Tasks unlocked via prerequisites are shown even if above age,
+        // with an isAboveAge flag so the UI can celebrate the achievement.
+        nextUpRows.add(_TaskRow(t, state,
+            warningPrereqTitle: warningTitle,
+            isAboveAge: hasPrereqs && isAboveAge));
         continue;
       }
       // LadderState.locked with no explicit skip → hide
@@ -368,7 +384,7 @@ class _LadderListState extends State<_LadderList> {
 
   Widget _buildTile(BuildContext context, _TaskRow row, String category) {
     final meta = _categoryMeta(category);
-    final isSkipped = row.state == LadderState.locked; // only skipped tasks reach here as locked
+    final isSkipped = row.state == LadderState.locked;
 
     final (icon, color) = switch (row.state) {
       LadderState.completed => (Icons.check_circle, Colors.green.shade600),
@@ -384,20 +400,49 @@ class _LadderListState extends State<_LadderList> {
       margin: const EdgeInsets.only(bottom: 6),
       child: ListTile(
         leading: Icon(icon, color: color, size: 26),
-        title: Text(
-          row.task.title,
-          style: TextStyle(
-            fontWeight: FontWeight.w500,
-            color: isSkipped ? Colors.grey.shade500 : null,
-          ),
+        title: Row(
+          children: [
+            Expanded(
+              child: Text(
+                row.task.title,
+                style: TextStyle(
+                  fontWeight: FontWeight.w500,
+                  color: isSkipped ? Colors.grey.shade500 : null,
+                ),
+              ),
+            ),
+            if (row.isAboveAge) ...[
+              const SizedBox(width: 6),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                decoration: BoxDecoration(
+                  color: Colors.amber.shade100,
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: Colors.amber.shade400, width: 0.8),
+                ),
+                child: Text(
+                  "⭐ Advanced",
+                  style: TextStyle(
+                    fontSize: 10,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.amber.shade800,
+                  ),
+                ),
+              ),
+            ],
+          ],
         ),
         subtitle: Text(
-          _subtitle(row),
+          row.isAboveAge && (row.state == LadderState.unlocked || row.state == LadderState.lockedWithWarning)
+              ? "Above their age — impressive!"
+              : _subtitle(row),
           style: TextStyle(
             fontSize: 12,
-            color: row.state == LadderState.lockedWithWarning
-                ? Colors.orange.shade700
-                : null,
+            color: row.isAboveAge
+                ? Colors.amber.shade700
+                : row.state == LadderState.lockedWithWarning
+                    ? Colors.orange.shade700
+                    : null,
           ),
         ),
         trailing: Icon(Icons.chevron_right, color: Colors.grey.shade400, size: 20),
@@ -651,8 +696,9 @@ class _CustomCategoryHeader extends StatelessWidget {
 }
 
 class _TaskRow {
-  _TaskRow(this.task, this.state, {this.warningPrereqTitle});
+  _TaskRow(this.task, this.state, {this.warningPrereqTitle, this.isAboveAge = false});
   final Task task;
   final LadderState state;
   final String? warningPrereqTitle;
+  final bool isAboveAge; // unlocked via prerequisites despite child's age
 }
