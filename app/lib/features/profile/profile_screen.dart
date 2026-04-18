@@ -631,6 +631,14 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
             categoryLabels: _categoryLabels,
             onTap: _editCategoryPreferences,
           ),
+          const SizedBox(height: 10),
+          OutlinedButton.icon(
+            icon: const Icon(Icons.tune, size: 16),
+            label: const Text("Recalibrate Ladder"),
+            onPressed: () => context.push(
+              '/onboarding/baseline?childId=${child.id}',
+            ),
+          ),
           const SizedBox(height: 24),
 
           // ── Progress stats ────────────────────────────────────────
