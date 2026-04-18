@@ -122,6 +122,7 @@ class TaskDetailScreen extends ConsumerWidget {
       isScrollControlled: true,
       builder: (_) => RewardPickerSheet(childId: childId),
     );
+    // null = sheet dismissed without choosing; empty string = "skip reward"
     if (reward == null) return;
 
     final key = TaskProgress.key(childId, task.slug);
@@ -148,7 +149,9 @@ class TaskDetailScreen extends ConsumerWidget {
               const SizedBox(width: 10),
               Expanded(
                 child: Text(
-                  '"${task.title}" completed! Reward: $reward',
+                  reward.isEmpty
+                      ? '"${task.title}" marked complete!'
+                      : '"${task.title}" completed! Reward: $reward',
                   maxLines: 2,
                 ),
               ),

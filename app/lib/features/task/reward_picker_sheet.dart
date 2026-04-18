@@ -10,8 +10,9 @@ final _rewardsProvider = FutureProvider.family<List<Reward>, int>((ref, age) {
   return ref.read(rewardRepositoryProvider).fetch(age: age);
 });
 
-/// Shows rewards grouped by category, biasing *against* categories this parent has
-/// picked most recently for this child.
+/// Shows rewards grouped by category. Returns the chosen reward title,
+/// or an empty string if the parent skips the reward step.
+/// Returns null only if dismissed without completing (sheet swiped away).
 class RewardPickerSheet extends ConsumerWidget {
   const RewardPickerSheet({super.key, required this.childId});
   final String childId;
@@ -23,19 +24,29 @@ class RewardPickerSheet extends ConsumerWidget {
     final asyncRewards = ref.watch(_rewardsProvider(age));
 
     return asyncRewards.when(
-      data: (rewards) => _build(context, rewards),
+      data: (rewards) => _RewardList(
+        childId: childId,
+        rewards: rewards,
+      ),
       loading: () => const SizedBox(
         height: 200,
         child: Center(child: CircularProgressIndicator()),
       ),
-      error: (e, _) => SizedBox(
-        height: 200,
-        child: Center(child: Text("Couldn't load rewards: $e")),
+      error: (e, _) => _SkipOnly(
+        message: "Couldn't load rewards.",
+        context: context,
       ),
     );
   }
+}
 
-  Widget _build(BuildContext context, List<Reward> rewards) {
+class _RewardList extends StatelessWidget {
+  const _RewardList({required this.childId, required this.rewards});
+  final String childId;
+  final List<Reward> rewards;
+
+  @override
+  Widget build(BuildContext context) {
     final recent = HiveSetup.rewardUsageBox.values
         .where((u) => u.childId == childId)
         .toList()
@@ -49,62 +60,111 @@ class RewardPickerSheet extends ConsumerWidget {
 
     return SafeArea(
       child: Padding(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text("Pick a reward",
-                style: Theme.of(context).textTheme.titleLarge),
-            const SizedBox(height: 12),
-            Flexible(
-              child: ListView(
-                shrinkWrap: true,
-                children: [
-                  for (final category in grouped.keys) ...[
-                    Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 6),
-                      child: Row(
-                        children: [
-                          Text(
-                            category[0].toUpperCase() + category.substring(1),
-                            style: Theme.of(context).textTheme.titleSmall,
-                          ),
-                          if (overused.contains(category))
-                            const Padding(
-                              padding: EdgeInsets.only(left: 8),
-                              child: Text("· used recently",
-                                  style: TextStyle(color: Colors.grey)),
-                            )
-                          else
-                            const Padding(
-                              padding: EdgeInsets.only(left: 8),
-                              child: Text("· fresh pick",
-                                  style: TextStyle(color: Colors.green)),
+            Row(
+              children: [
+                Expanded(
+                  child: Text("Pick a reward",
+                      style: Theme.of(context).textTheme.titleLarge),
+                ),
+                TextButton(
+                  onPressed: () => Navigator.of(context).pop(""),
+                  child: const Text("Skip reward"),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            if (rewards.isEmpty)
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 16),
+                child: Text(
+                  "No rewards set up for this age yet.",
+                  style: TextStyle(color: Colors.grey.shade600),
+                ),
+              )
+            else
+              Flexible(
+                child: ListView(
+                  shrinkWrap: true,
+                  children: [
+                    for (final category in grouped.keys) ...[
+                      Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 6),
+                        child: Row(
+                          children: [
+                            Text(
+                              category[0].toUpperCase() + category.substring(1),
+                              style: Theme.of(context).textTheme.titleSmall,
                             ),
-                        ],
+                            Padding(
+                              padding: const EdgeInsets.only(left: 8),
+                              child: Text(
+                                overused.contains(category)
+                                    ? "· used recently"
+                                    : "· fresh pick",
+                                style: TextStyle(
+                                  color: overused.contains(category)
+                                      ? Colors.grey
+                                      : Colors.green,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
-                    ),
-                    for (final r in grouped[category]!)
-                      ListTile(
-                        title: Text(r.title),
-                        subtitle: r.notes.isEmpty ? null : Text(r.notes),
-                        trailing: r.isFree
-                            ? null
-                            : const Icon(Icons.attach_money, size: 16),
-                        onTap: () async {
-                          await HiveSetup.rewardUsageBox.add(RewardUsage(
-                            childId: childId,
-                            rewardCategory: r.category,
-                            rewardTitle: r.title,
-                            usedAt: DateTime.now(),
-                          ));
-                          if (context.mounted) Navigator.of(context).pop(r.title);
-                        },
-                      ),
+                      for (final r in grouped[category]!)
+                        ListTile(
+                          title: Text(r.title),
+                          subtitle:
+                              r.notes.isEmpty ? null : Text(r.notes),
+                          trailing: r.isFree
+                              ? null
+                              : const Icon(Icons.attach_money, size: 16),
+                          onTap: () async {
+                            await HiveSetup.rewardUsageBox.add(RewardUsage(
+                              childId: childId,
+                              rewardCategory: r.category,
+                              rewardTitle: r.title,
+                              usedAt: DateTime.now(),
+                            ));
+                            if (context.mounted) {
+                              Navigator.of(context).pop(r.title);
+                            }
+                          },
+                        ),
+                    ],
                   ],
-                ],
+                ),
               ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _SkipOnly extends StatelessWidget {
+  const _SkipOnly({required this.message, required this.context});
+  final String message;
+  final BuildContext context;
+
+  @override
+  Widget build(BuildContext ctx) {
+    return SafeArea(
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(message, style: TextStyle(color: Colors.grey.shade600)),
+            const SizedBox(height: 16),
+            FilledButton(
+              onPressed: () => Navigator.of(ctx).pop(""),
+              child: const Text("Complete without reward"),
             ),
           ],
         ),
