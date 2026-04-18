@@ -1,3 +1,7 @@
+# ---------- Secrets ----------
+backend/firebase-credentials.json
+infra/docker-compose.override.yml
+
 # ---------- Python / Django ----------
 __pycache__/
 *.py[cod]

@@ -1,5 +1,7 @@
 from django.db import models
 
+from content.models import ReviewStatus
+
 
 class RewardCategory(models.Model):
     class Kind(models.TextChoices):
@@ -24,7 +26,13 @@ class RewardItem(models.Model):
     max_age = models.PositiveSmallIntegerField(default=11)
     is_free = models.BooleanField(default=True, help_text="Zero monetary cost to the parent.")
     notes = models.TextField(blank=True)
-    is_published = models.BooleanField(default=True)
+    status = models.CharField(
+        max_length=16,
+        choices=ReviewStatus.choices,
+        default=ReviewStatus.DRAFT,
+        db_index=True,
+    )
+    review_notes = models.TextField(blank=True, help_text="Internal reviewer notes.")
 
     class Meta:
         ordering = ["category", "title"]

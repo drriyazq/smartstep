@@ -34,6 +34,7 @@ class TaskSerializer(serializers.ModelSerializer):
             "title",
             "how_to_md",
             "safety_md",
+            "parent_note_md",
             "min_age",
             "max_age",
             "environments",

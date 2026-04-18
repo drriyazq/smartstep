@@ -1,0 +1,199 @@
+{% extends "admin/base_site.html" %}
+
+{% block extrahead %}
+{{ block.super }}
+<style>
+  .ss-toolbar { display:flex; gap:12px; align-items:center; flex-wrap:wrap; margin-bottom:16px; }
+  .ss-tabs { display:flex; gap:4px; flex-wrap:wrap; margin-bottom:16px; }
+  .ss-tab {
+    padding:6px 14px; border-radius:20px; font-size:13px; font-weight:600;
+    text-decoration:none; color:#555; background:#f3f4f6; border:1px solid #e5e7eb;
+  }
+  .ss-tab.active { background:#417690; color:#fff; border-color:#417690; }
+  .ss-tab .badge {
+    display:inline-block; background:rgba(0,0,0,.15); border-radius:10px;
+    font-size:11px; padding:1px 6px; margin-left:4px;
+  }
+  .ss-table { width:100%; border-collapse:collapse; font-size:13px; }
+  .ss-table th {
+    text-align:left; padding:8px 10px; background:#417690; color:#fff;
+    font-weight:600; white-space:nowrap;
+  }
+  .ss-table td { padding:8px 10px; border-bottom:1px solid #e5e7eb; vertical-align:middle; }
+  .ss-table tr:hover td { background:#f9fafb; }
+  .ss-badge {
+    display:inline-block; border-radius:10px; font-size:11px; font-weight:700;
+    padding:2px 9px; color:#fff; white-space:nowrap;
+  }
+  .ss-btn {
+    display:inline-block; padding:3px 10px; border-radius:4px; font-size:12px;
+    font-weight:600; border:none; cursor:pointer; text-decoration:none; line-height:1.6;
+  }
+  .ss-btn-approve { background:#10b981; color:#fff; }
+  .ss-btn-reject  { background:#ef4444; color:#fff; }
+  .ss-btn-draft   { background:#9ca3af; color:#fff; }
+  .ss-btn-pending { background:#f59e0b; color:#fff; }
+  .ss-btn-edit    { background:#417690; color:#fff; }
+  .ss-btn-delete  { background:#fee2e2; color:#b91c1c; border:1px solid #fca5a5; }
+  .ss-btn:hover { opacity:.85; }
+  .ss-search input { padding:6px 10px; border:1px solid #ccc; border-radius:4px; width:220px; font-size:13px; }
+  .ss-search button { padding:6px 12px; background:#417690; color:#fff; border:none; border-radius:4px; cursor:pointer; font-size:13px; }
+  .ss-cat-select { padding:6px 10px; border:1px solid #ccc; border-radius:4px; font-size:13px; }
+  .ss-add-btn {
+    padding:7px 16px; background:#28a745; color:#fff; border:none; border-radius:4px;
+    font-size:13px; font-weight:600; text-decoration:none; cursor:pointer;
+  }
+  .ss-tag-pill {
+    display:inline-block; background:#e0f2fe; color:#0369a1; border-radius:10px;
+    font-size:11px; padding:1px 7px; margin:1px; white-space:nowrap;
+  }
+  .ss-empty { text-align:center; padding:40px; color:#9ca3af; font-size:15px; }
+</style>
+{% endblock %}
+
+{% block content_title %}
+<h1>Task Screening</h1>
+{% endblock %}
+
+{% block object-tools-items %}
+<li><a href="{% url 'admin:content_task_screen_add' %}" class="ss-add-btn">+ Add new task</a></li>
+<li><a href="{% url 'admin:content_task_graph' %}" class="ss-add-btn" style="background:#6366f1;">DAG graph</a></li>
+{% endblock %}
+
+{% block content %}
+
+{% if messages %}
+  {% for m in messages %}
+  <div class="messagelist">
+    <p class="{% if m.tags %}{{ m.tags }}{% endif %}">{{ m }}</p>
+  </div>
+  {% endfor %}
+{% endif %}
+
+{# ── Status tabs ── #}
+<div class="ss-tabs">
+  <a href="?status=all&category={{ category_filter }}&q={{ q }}"
+     class="ss-tab {% if status_filter == 'all' %}active{% endif %}">
+    All <span class="badge">{{ counts.all }}</span>
+  </a>
+  {% for val, label in review_statuses %}
+  <a href="?status={{ val }}&category={{ category_filter }}&q={{ q }}"
+     class="ss-tab {% if status_filter == val %}active{% endif %}"
+     style="{% if status_filter == val %}background:{{ status_colors|default_if_none:'' }};{% endif %}">
+    {{ label }} <span class="badge">{{ counts|default_if_none:0 }}</span>
+  </a>
+  {% endfor %}
+</div>
+
+{# ── Filters toolbar ── #}
+<div class="ss-toolbar">
+  <form method="get" class="ss-search" style="display:flex;gap:6px;align-items:center;">
+    <input type="hidden" name="status" value="{{ status_filter }}">
+    <input type="text" name="q" value="{{ q }}" placeholder="Search slug or title…">
+    <select name="category" class="ss-cat-select" onchange="this.form.submit()">
+      <option value="">All categories</option>
+      {% for val, label in categories %}
+        <option value="{{ val }}" {% if val == category_filter %}selected{% endif %}>{{ label }}</option>
+      {% endfor %}
+    </select>
+    <button type="submit">Search</button>
+    {% if q or category_filter %}
+      <a href="?status={{ status_filter }}" style="font-size:12px;color:#ef4444;">✕ Clear</a>
+    {% endif %}
+  </form>
+</div>
+
+{# ── Task table ── #}
+{% if tasks %}
+<table class="ss-table">
+  <thead>
+    <tr>
+      <th>#</th>
+      <th>Title / Slug</th>
+      <th>Category</th>
+      <th>Ages</th>
+      <th>Status</th>
+      <th>Actions</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for task in tasks %}
+    <tr>
+      <td style="color:#9ca3af;font-size:11px;">{{ forloop.counter }}</td>
+      <td>
+        <strong>{{ task.title }}</strong>
+        <br><code style="font-size:11px;color:#6b7280;">{{ task.slug }}</code>
+      </td>
+      <td>
+        {% for tag in task.tags.all %}
+          <span class="ss-tag-pill">{{ tag.get_category_display }}: {{ tag.name }}</span>
+        {% empty %}
+          <span style="color:#ccc;font-size:11px;">—</span>
+        {% endfor %}
+      </td>
+      <td style="white-space:nowrap;">{{ task.min_age }}–{{ task.max_age }}</td>
+      <td>
+        {% with c=status_colors %}
+          {% if task.status == 'approved' %}
+            <span class="ss-badge" style="background:#10b981;">Approved</span>
+          {% elif task.status == 'pending' %}
+            <span class="ss-badge" style="background:#f59e0b;">Pending</span>
+          {% elif task.status == 'rejected' %}
+            <span class="ss-badge" style="background:#ef4444;">Rejected</span>
+          {% else %}
+            <span class="ss-badge" style="background:#9ca3af;">Draft</span>
+          {% endif %}
+        {% endwith %}
+      </td>
+      <td style="white-space:nowrap;">
+        <a href="{% url 'admin:content_task_screen_edit' task.pk %}" class="ss-btn ss-btn-edit">Edit</a>
+
+        {% if task.status != 'approved' %}
+        <form method="post" style="display:inline;">
+          {% csrf_token %}
+          <input type="hidden" name="task_id" value="{{ task.pk }}">
+          <input type="hidden" name="action" value="approve">
+          <button type="submit" class="ss-btn ss-btn-approve">Approve</button>
+        </form>
+        {% endif %}
+
+        {% if task.status != 'rejected' %}
+        <form method="post" style="display:inline;">
+          {% csrf_token %}
+          <input type="hidden" name="task_id" value="{{ task.pk }}">
+          <input type="hidden" name="action" value="reject">
+          <button type="submit" class="ss-btn ss-btn-reject">Reject</button>
+        </form>
+        {% endif %}
+
+        {% if task.status != 'draft' %}
+        <form method="post" style="display:inline;">
+          {% csrf_token %}
+          <input type="hidden" name="task_id" value="{{ task.pk }}">
+          <input type="hidden" name="action" value="draft">
+          <button type="submit" class="ss-btn ss-btn-draft">→ Draft</button>
+        </form>
+        {% endif %}
+
+        <form method="post" style="display:inline;"
+              onsubmit="return confirm('Delete "{{ task.title }}"?');">
+          {% csrf_token %}
+          <input type="hidden" name="task_id" value="{{ task.pk }}">
+          <input type="hidden" name="action" value="delete">
+          <button type="submit" class="ss-btn ss-btn-delete">Delete</button>
+        </form>
+      </td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+<p style="margin-top:10px;color:#6b7280;font-size:12px;">{{ tasks|length }} task(s) shown.</p>
+
+{% else %}
+  <div class="ss-empty">
+    No tasks match this filter.
+    {% if q or category_filter %}<br><a href="?status={{ status_filter }}">Clear filters</a>{% endif %}
+  </div>
+{% endif %}
+
+{% endblock %}

@@ -1,0 +1,190 @@
+{% extends "admin/base_site.html" %}
+
+{% block extrahead %}
+{{ block.super }}
+<style>
+  .sf-back { font-size:13px; color:#417690; text-decoration:none; display:inline-block; margin-bottom:16px; }
+  .sf-back:hover { text-decoration:underline; }
+  .sf-card {
+    background:#fff; border:1px solid #e5e7eb; border-radius:6px;
+    padding:24px; margin-bottom:20px;
+  }
+  .sf-card h2 {
+    margin:0 0 16px; font-size:14px; font-weight:700; text-transform:uppercase;
+    letter-spacing:.05em; color:#417690; border-bottom:2px solid #e5e7eb; padding-bottom:8px;
+  }
+  .sf-row { display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-bottom:14px; }
+  .sf-row.full { grid-template-columns:1fr; }
+  .sf-field label {
+    display:block; font-size:12px; font-weight:700; color:#374151;
+    text-transform:uppercase; letter-spacing:.03em; margin-bottom:4px;
+  }
+  .sf-field input[type=text],
+  .sf-field input[type=number],
+  .sf-field select,
+  .sf-field textarea {
+    width:100%; padding:8px 10px; border:1px solid #d1d5db; border-radius:4px;
+    font-size:13px; box-sizing:border-box; font-family:inherit;
+  }
+  .sf-field textarea { resize:vertical; }
+  .sf-field .helptext { font-size:11px; color:#6b7280; margin-top:3px; }
+  .sf-field .errorlist { color:#dc2626; font-size:12px; margin:4px 0 0; padding:0; list-style:none; }
+  .sf-checks { display:flex; flex-wrap:wrap; gap:8px; margin-top:4px; }
+  .sf-checks label {
+    display:flex; align-items:center; gap:5px; font-size:13px;
+    font-weight:400; text-transform:none; letter-spacing:0; cursor:pointer;
+    background:#f3f4f6; border:1px solid #e5e7eb; border-radius:4px; padding:4px 10px;
+  }
+  .sf-checks label:hover { background:#e0f2fe; border-color:#bae6fd; }
+  .sf-actions {
+    display:flex; gap:10px; flex-wrap:wrap; padding:16px;
+    background:#f9fafb; border:1px solid #e5e7eb; border-radius:6px;
+  }
+  .sf-btn {
+    padding:9px 18px; border:none; border-radius:4px; font-size:13px;
+    font-weight:700; cursor:pointer; text-decoration:none;
+  }
+  .sf-btn-save    { background:#417690; color:#fff; }
+  .sf-btn-approve { background:#10b981; color:#fff; }
+  .sf-btn-reject  { background:#ef4444; color:#fff; }
+  .sf-btn-draft   { background:#9ca3af; color:#fff; }
+  .sf-btn-pending { background:#f59e0b; color:#fff; }
+  .sf-btn-cancel  { background:#f3f4f6; color:#374151; border:1px solid #d1d5db; }
+  .sf-btn:hover { opacity:.87; }
+  .sf-status-select {
+    display:flex; gap:8px; flex-wrap:wrap; margin-top:4px;
+  }
+  .sf-status-opt {
+    display:flex; align-items:center; gap:5px; cursor:pointer; font-size:13px;
+  }
+</style>
+{% endblock %}
+
+{% block content_title %}
+<h1>{{ title }}</h1>
+{% endblock %}
+
+{% block content %}
+
+<a href="{% url 'admin:content_task_screen' %}" class="sf-back">← Back to screening list</a>
+
+{% if form.errors %}
+<div style="background:#fee2e2;border:1px solid #fca5a5;border-radius:6px;padding:12px 16px;margin-bottom:16px;color:#b91c1c;font-size:13px;">
+  <strong>Please fix the errors below before saving.</strong>
+  {% if form.non_field_errors %}
+  <ul style="margin:6px 0 0;padding-left:18px;">
+    {% for e in form.non_field_errors %}<li>{{ e }}</li>{% endfor %}
+  </ul>
+  {% endif %}
+</div>
+{% endif %}
+
+<form method="post">
+  {% csrf_token %}
+
+  {# ── Identity ── #}
+  <div class="sf-card">
+    <h2>Identity</h2>
+    <div class="sf-row">
+      <div class="sf-field">
+        <label for="{{ form.slug.id_for_label }}">Slug *</label>
+        {{ form.slug }}
+        {% if form.slug.errors %}<ul class="errorlist">{% for e in form.slug.errors %}<li>{{ e }}</li>{% endfor %}</ul>{% endif %}
+        <p class="helptext">URL-safe identifier, max 80 chars. Cannot be changed after first approval.</p>
+      </div>
+      <div class="sf-field">
+        <label for="{{ form.title.id_for_label }}">Title *</label>
+        {{ form.title }}
+        {% if form.title.errors %}<ul class="errorlist">{% for e in form.title.errors %}<li>{{ e }}</li>{% endfor %}</ul>{% endif %}
+      </div>
+    </div>
+  </div>
+
+  {# ── Content ── #}
+  <div class="sf-card">
+    <h2>Content</h2>
+    <div class="sf-row full">
+      <div class="sf-field">
+        <label for="{{ form.how_to_md.id_for_label }}">How-to (Markdown) *</label>
+        {{ form.how_to_md }}
+        {% if form.how_to_md.errors %}<ul class="errorlist">{% for e in form.how_to_md.errors %}<li>{{ e }}</li>{% endfor %}</ul>{% endif %}
+        <p class="helptext">{{ form.how_to_md.help_text }}</p>
+      </div>
+    </div>
+    <div class="sf-row full">
+      <div class="sf-field">
+        <label for="{{ form.safety_md.id_for_label }}">Safety note (Markdown)</label>
+        {{ form.safety_md }}
+        <p class="helptext">{{ form.safety_md.help_text }}</p>
+      </div>
+    </div>
+    <div class="sf-row full">
+      <div class="sf-field">
+        <label for="{{ form.parent_note_md.id_for_label }}">For parents — why this matters (Markdown)</label>
+        {{ form.parent_note_md }}
+        <p class="helptext">{{ form.parent_note_md.help_text }}</p>
+      </div>
+    </div>
+  </div>
+
+  {# ── Audience ── #}
+  <div class="sf-card">
+    <h2>Audience</h2>
+    <div class="sf-row">
+      <div class="sf-field">
+        <label for="{{ form.min_age.id_for_label }}">Min age</label>
+        {{ form.min_age }}
+        {% if form.min_age.errors %}<ul class="errorlist">{% for e in form.min_age.errors %}<li>{{ e }}</li>{% endfor %}</ul>{% endif %}
+      </div>
+      <div class="sf-field">
+        <label for="{{ form.max_age.id_for_label }}">Max age</label>
+        {{ form.max_age }}
+        {% if form.max_age.errors %}<ul class="errorlist">{% for e in form.max_age.errors %}<li>{{ e }}</li>{% endfor %}</ul>{% endif %}
+      </div>
+    </div>
+    <div class="sf-row">
+      <div class="sf-field">
+        <label>Tags</label>
+        <div class="sf-checks">
+          {% for choice in form.tags %}{{ choice }}{% endfor %}
+        </div>
+        {% if form.tags.errors %}<ul class="errorlist">{% for e in form.tags.errors %}<li>{{ e }}</li>{% endfor %}</ul>{% endif %}
+      </div>
+      <div class="sf-field">
+        <label>Environments</label>
+        <div class="sf-checks">
+          {% for choice in form.environments %}{{ choice }}{% endfor %}
+        </div>
+        {% if form.environments.errors %}<ul class="errorlist">{% for e in form.environments.errors %}<li>{{ e }}</li>{% endfor %}</ul>{% endif %}
+      </div>
+    </div>
+  </div>
+
+  {# ── Review ── #}
+  <div class="sf-card">
+    <h2>Review</h2>
+    <div class="sf-row full">
+      <div class="sf-field">
+        <label for="{{ form.review_notes.id_for_label }}">Internal reviewer notes</label>
+        {{ form.review_notes }}
+        <p class="helptext">{{ form.review_notes.help_text }}</p>
+      </div>
+    </div>
+  </div>
+
+  {# ── Actions ── #}
+  <div class="sf-actions">
+    <button type="submit" name="save_action" value="draft" class="sf-btn sf-btn-draft">Save as Draft</button>
+    <button type="submit" name="save_action" value="pending" class="sf-btn sf-btn-pending">Submit for Review</button>
+    <button type="submit" name="save_action" value="approved" class="sf-btn sf-btn-approve">Save &amp; Approve ✓</button>
+    <button type="submit" name="save_action" value="rejected" class="sf-btn sf-btn-reject">Save &amp; Reject ✗</button>
+    <a href="{% url 'admin:content_task_screen' %}" class="sf-btn sf-btn-cancel">Cancel</a>
+    {% if not is_new %}
+    <span style="margin-left:auto;font-size:11px;color:#9ca3af;align-self:center;">
+      Created: {{ task.created_at|date:"d M Y" }} · Updated: {{ task.updated_at|date:"d M Y H:i" }}
+    </span>
+    {% endif %}
+  </div>
+
+</form>
+{% endblock %}

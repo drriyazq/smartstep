@@ -14,6 +14,16 @@ class Environment(models.Model):
         return self.get_kind_display()
 
 
+class ReviewStatus(models.TextChoices):
+    """Review workflow: draft → pending → approved (or rejected). Only `approved`
+    rows are served by the public API."""
+
+    DRAFT = "draft", "Draft"
+    PENDING = "pending", "Pending review"
+    APPROVED = "approved", "Approved"
+    REJECTED = "rejected", "Rejected"
+
+
 class Tag(models.Model):
     class Category(models.TextChoices):
         FINANCIAL = "financial", "Financial"
@@ -40,11 +50,21 @@ class Task(models.Model):
         blank=True,
         help_text="Markdown. Risks and mitigations. Required for Navigation / Digital tasks.",
     )
+    parent_note_md = models.TextField(
+        blank=True,
+        help_text="Markdown. Shown to parents only — why this skill matters and what benefits to expect.",
+    )
     min_age = models.PositiveSmallIntegerField(default=7)
     max_age = models.PositiveSmallIntegerField(default=11)
     environments = models.ManyToManyField(Environment, related_name="tasks", blank=True)
     tags = models.ManyToManyField(Tag, related_name="tasks", blank=True)
-    is_published = models.BooleanField(default=False)
+    status = models.CharField(
+        max_length=16,
+        choices=ReviewStatus.choices,
+        default=ReviewStatus.DRAFT,
+        db_index=True,
+    )
+    review_notes = models.TextField(blank=True, help_text="Internal reviewer notes.")
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
