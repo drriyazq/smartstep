@@ -66,11 +66,24 @@ class _LadderList extends StatelessWidget {
       for (final p in HiveSetup.progressBox.values.where((p) => p.childId == childId))
         p.taskSlug: p,
     };
+    final taskBySlug = {for (final t in tasks) t.slug: t};
     final grouped = <String, List<_TaskRow>>{};
     for (final t in tasks) {
       final state = computeLadderState(task: t, progressBySlug: progress);
+      String? warningTitle;
+      if (state == LadderState.lockedWithWarning) {
+        for (final p in t.prerequisites) {
+          if (!p.isMandatory) continue;
+          if (progress[p.taskSlug]?.softSkipped == true) {
+            warningTitle = taskBySlug[p.taskSlug]?.title;
+            break;
+          }
+        }
+      }
       final category = t.tags.isEmpty ? "Other" : t.tags.first.category;
-      grouped.putIfAbsent(category, () => []).add(_TaskRow(t, state));
+      grouped
+          .putIfAbsent(category, () => [])
+          .add(_TaskRow(t, state, warningPrereqTitle: warningTitle));
     }
     for (final rows in grouped.values) {
       rows.sort((a, b) => a.state.index.compareTo(b.state.index));
@@ -117,23 +130,27 @@ class _LadderList extends StatelessWidget {
     return ListTile(
       leading: Icon(icon, color: color),
       title: Text(row.task.title),
-      subtitle: Text(_subtitle(row.state)),
+      subtitle: Text(_subtitle(row)),
       enabled: enabled || row.state == LadderState.completed,
       onTap: () => context.push("/task/${row.task.slug}"),
     );
   }
 
-  String _subtitle(LadderState s) => switch (s) {
+  String _subtitle(_TaskRow row) => switch (row.state) {
         LadderState.completed => "Completed",
         LadderState.satisfied => "Already knows this",
         LadderState.unlocked => "Ready to try",
-        LadderState.lockedWithWarning => "Requires a skipped skill",
+        LadderState.lockedWithWarning =>
+          row.warningPrereqTitle != null
+              ? 'Requires skipped: "${row.warningPrereqTitle}"'
+              : "Requires a skipped skill",
         LadderState.locked => "Locked",
       };
 }
 
 class _TaskRow {
-  _TaskRow(this.task, this.state);
+  _TaskRow(this.task, this.state, {this.warningPrereqTitle});
   final Task task;
   final LadderState state;
+  final String? warningPrereqTitle;
 }

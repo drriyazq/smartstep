@@ -32,6 +32,7 @@ class Task {
     required this.title,
     required this.howToMd,
     required this.safetyMd,
+    required this.parentNoteMd,
     required this.minAge,
     required this.maxAge,
     required this.environments,
@@ -44,6 +45,7 @@ class Task {
   final String title;
   final String howToMd;
   final String safetyMd;
+  final String parentNoteMd;
   final int minAge;
   final int maxAge;
   final List<String> environments;
@@ -56,6 +58,7 @@ class Task {
         title: j["title"] as String,
         howToMd: j["how_to_md"] as String,
         safetyMd: (j["safety_md"] as String?) ?? "",
+        parentNoteMd: (j["parent_note_md"] as String?) ?? "",
         minAge: j["min_age"] as int,
         maxAge: j["max_age"] as int,
         environments:
