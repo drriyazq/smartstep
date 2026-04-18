@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_markdown/flutter_markdown.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
@@ -18,20 +19,21 @@ class TaskDetailScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final cached = ref.read(taskRepositoryProvider).cached ?? const <Task>[];
-    Task? task;
+    Task? taskNullable;
     for (final t in cached) {
       if (t.slug == taskSlug) {
-        task = t;
+        taskNullable = t;
         break;
       }
     }
 
-    if (task == null) {
+    if (taskNullable == null) {
       return Scaffold(
         appBar: AppBar(title: const Text("Task")),
         body: const Center(child: Text("Task not found in cache.")),
       );
     }
+    final task = taskNullable;
     final child = HiveSetup.childBox.values.first;
     final progressKey = TaskProgress.key(child.id, task.slug);
     final existing = HiveSetup.progressBox.get(progressKey);
@@ -42,7 +44,7 @@ class TaskDetailScreen extends ConsumerWidget {
         padding: const EdgeInsets.all(20),
         children: [
           _sectionHeader(context, "How to"),
-          Text(task.howToMd),
+          MarkdownBody(data: task.howToMd, shrinkWrap: true),
           if (task.safetyMd.isNotEmpty) ...[
             const SizedBox(height: 24),
             _sectionHeader(context, "Safety"),
@@ -50,9 +52,13 @@ class TaskDetailScreen extends ConsumerWidget {
               color: Colors.amber.shade50,
               child: Padding(
                 padding: const EdgeInsets.all(12),
-                child: Text(task.safetyMd),
+                child: MarkdownBody(data: task.safetyMd, shrinkWrap: true),
               ),
             ),
+          ],
+          if (task.parentNoteMd.isNotEmpty) ...[
+            const SizedBox(height: 24),
+            _ParentNoteCard(content: task.parentNoteMd),
           ],
           const SizedBox(height: 32),
           if (existing?.status == ProgressStatus.completed)
@@ -145,6 +151,68 @@ class TaskDetailScreen extends ConsumerWidget {
       TaskProgress(taskSlug: task.slug, childId: childId, status: status),
     );
     if (context.mounted) context.pop();
+  }
+}
+
+class _ParentNoteCard extends StatefulWidget {
+  const _ParentNoteCard({required this.content});
+  final String content;
+
+  @override
+  State<_ParentNoteCard> createState() => _ParentNoteCardState();
+}
+
+class _ParentNoteCardState extends State<_ParentNoteCard> {
+  bool _expanded = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      color: Colors.teal.shade50,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          InkWell(
+            borderRadius: BorderRadius.circular(12),
+            onTap: () => setState(() => _expanded = !_expanded),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              child: Row(
+                children: [
+                  Icon(Icons.family_restroom, color: Colors.teal.shade700, size: 20),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      "For Parents — Why This Matters",
+                      style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                            color: Colors.teal.shade800,
+                            fontWeight: FontWeight.w600,
+                          ),
+                    ),
+                  ),
+                  Icon(
+                    _expanded ? Icons.expand_less : Icons.expand_more,
+                    color: Colors.teal.shade700,
+                  ),
+                ],
+              ),
+            ),
+          ),
+          if (_expanded)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+              child: MarkdownBody(
+                data: widget.content,
+                shrinkWrap: true,
+                styleSheet: MarkdownStyleSheet(
+                  p: TextStyle(color: Colors.teal.shade900),
+                  listBullet: TextStyle(color: Colors.teal.shade900),
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
   }
 }
 
