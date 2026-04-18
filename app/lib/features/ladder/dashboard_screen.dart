@@ -229,34 +229,19 @@ class _LadderList extends StatefulWidget {
 class _LadderListState extends State<_LadderList> {
   static const _nextUpLimit = 5;
   bool _showAllNextUp = false;
-  Set<String> _enabledCategories = {};
-
-  @override
-  void initState() {
-    super.initState();
-    final saved = HiveSetup.sessionBox.get('cat_filter::${widget.childId}') as String?;
-    if (saved != null && saved.isNotEmpty) {
-      _enabledCategories = saved.split(',').toSet();
-    }
-  }
-
-  void _saveCategoryFilter() {
-    HiveSetup.sessionBox.put('cat_filter::${widget.childId}', _enabledCategories.join(','));
-  }
 
   @override
   Widget build(BuildContext context) {
     final childId = widget.childId;
-    final allApiCategories = (widget.tasks
-        .map((t) => t.tags.isEmpty ? 'other' : t.tags.first.category)
-        .toSet()
-        .toList()
-      ..sort());
-    final tasks = _enabledCategories.isEmpty
+    final savedFilter = HiveSetup.sessionBox.get('cat_filter::$childId') as String?;
+    final enabledCategories = (savedFilter != null && savedFilter.isNotEmpty)
+        ? savedFilter.split(',').toSet()
+        : <String>{};
+    final tasks = enabledCategories.isEmpty
         ? widget.tasks
         : widget.tasks.where((t) {
             final cat = t.tags.isEmpty ? 'other' : t.tags.first.category;
-            return _enabledCategories.contains(cat);
+            return enabledCategories.contains(cat);
           }).toList();
     final child = HiveSetup.childBox.get(childId)!;
     final childAge = child.ageOn(DateTime.now());
@@ -366,17 +351,7 @@ class _LadderListState extends State<_LadderList> {
           total: total,
           categoryStats: categoryStats,
         ),
-        const SizedBox(height: 12),
-        if (allApiCategories.length > 1)
-          _CategoryFilterChips(
-            allCategories: allApiCategories,
-            enabled: _enabledCategories,
-            onChanged: (cats) {
-              setState(() => _enabledCategories = cats);
-              _saveCategoryFilter();
-            },
-          ),
-        const SizedBox(height: 12),
+        const SizedBox(height: 20),
 
         // ── Next Up ────────────────────────────────────────────
         if (nextUpRows.isNotEmpty) ...[
@@ -857,64 +832,6 @@ class _CategoryStat {
   final int total;
 }
 
-class _CategoryFilterChips extends StatelessWidget {
-  const _CategoryFilterChips({
-    required this.allCategories,
-    required this.enabled,
-    required this.onChanged,
-  });
-  final List<String> allCategories;
-  final Set<String> enabled;
-  final void Function(Set<String>) onChanged;
-
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      height: 38,
-      child: ListView.separated(
-        scrollDirection: Axis.horizontal,
-        itemCount: allCategories.length,
-        separatorBuilder: (_, __) => const SizedBox(width: 6),
-        itemBuilder: (context, i) {
-          final cat = allCategories[i];
-          final meta = _categoryMeta(cat);
-          final isSelected = enabled.isEmpty || enabled.contains(cat);
-          return FilterChip(
-            label: Text(meta.label),
-            avatar: Icon(meta.icon, size: 13,
-                color: isSelected ? meta.color : Colors.grey.shade500),
-            selected: isSelected,
-            onSelected: (val) {
-              final current = enabled.isEmpty
-                  ? Set<String>.from(allCategories)
-                  : Set<String>.from(enabled);
-              if (val) {
-                current.add(cat);
-                onChanged(current.length == allCategories.length ? {} : current);
-              } else {
-                current.remove(cat);
-                if (current.isNotEmpty) onChanged(current);
-              }
-            },
-            selectedColor: meta.color.withOpacity(0.12),
-            checkmarkColor: meta.color,
-            labelStyle: TextStyle(
-              fontSize: 11,
-              color: isSelected ? meta.color : Colors.grey.shade600,
-              fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
-            ),
-            side: BorderSide(
-              color: isSelected ? meta.color.withOpacity(0.5) : Colors.grey.shade300,
-            ),
-            padding: const EdgeInsets.symmetric(horizontal: 2),
-            materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-            visualDensity: VisualDensity.compact,
-          );
-        },
-      ),
-    );
-  }
-}
 
 class _TaskRow {
   _TaskRow(this.task, this.state, {this.warningPrereqTitle, this.isAboveAge = false});

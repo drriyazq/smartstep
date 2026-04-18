@@ -62,6 +62,85 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     if (mounted) setState(() {});
   }
 
+  static const _allCategories = [
+    'cognitive', 'digital', 'financial', 'household', 'navigation', 'social'
+  ];
+
+  static const _categoryLabels = {
+    'cognitive': 'Thinking & Problem Solving',
+    'digital': 'Digital & Communication',
+    'financial': 'Financial Literacy',
+    'household': 'Household Independence',
+    'navigation': 'Navigation & Safety',
+    'social': 'Social & Communication',
+  };
+
+  Set<String> _loadEnabledCategories() {
+    final saved = HiveSetup.sessionBox.get('cat_filter::${_child.id}') as String?;
+    return (saved != null && saved.isNotEmpty)
+        ? saved.split(',').toSet()
+        : {};
+  }
+
+  Future<void> _editCategoryPreferences() async {
+    final current = _loadEnabledCategories();
+    // empty means all enabled — expand to full set for the dialog
+    var selected = current.isEmpty ? Set<String>.from(_allCategories) : Set<String>.from(current);
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (_) => StatefulBuilder(
+        builder: (ctx, setDlg) => AlertDialog(
+          title: const Text("Category Preferences"),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Text(
+                  "Choose which skill categories to show on the ladder.",
+                  style: TextStyle(fontSize: 13, color: Colors.grey),
+                ),
+                const SizedBox(height: 12),
+                for (final cat in _allCategories)
+                  CheckboxListTile(
+                    value: selected.contains(cat),
+                    title: Text(_categoryLabels[cat] ?? cat),
+                    contentPadding: EdgeInsets.zero,
+                    dense: true,
+                    onChanged: (val) {
+                      final next = Set<String>.from(selected);
+                      if (val == true) {
+                        next.add(cat);
+                      } else if (next.length > 1) {
+                        next.remove(cat);
+                      }
+                      setDlg(() => selected = next);
+                    },
+                  ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text("Cancel"),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              child: const Text("Save"),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (confirmed != true) return;
+    // if all selected, store empty string (means "all")
+    final toSave = selected.length == _allCategories.length ? '' : selected.join(',');
+    await HiveSetup.sessionBox.put('cat_filter::${_child.id}', toSave);
+    ref.read(progressVersionProvider.notifier).state++;
+    if (mounted) setState(() {});
+  }
+
   Future<void> _editEnvironment() async {
     Environment? selected = _child.environment;
     final result = await showDialog<Environment>(
@@ -545,6 +624,13 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
               ),
             ],
           ),
+          const SizedBox(height: 10),
+          _CategoryPreferencesTile(
+            enabledCategories: _loadEnabledCategories(),
+            allCategories: _allCategories,
+            categoryLabels: _categoryLabels,
+            onTap: _editCategoryPreferences,
+          ),
           const SizedBox(height: 24),
 
           // ── Progress stats ────────────────────────────────────────
@@ -839,6 +925,46 @@ class _QuickActionCard extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+class _CategoryPreferencesTile extends StatelessWidget {
+  const _CategoryPreferencesTile({
+    required this.enabledCategories,
+    required this.allCategories,
+    required this.categoryLabels,
+    required this.onTap,
+  });
+  final Set<String> enabledCategories;
+  final List<String> allCategories;
+  final Map<String, String> categoryLabels;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final isAll = enabledCategories.isEmpty;
+    final subtitle = isAll
+        ? "All categories shown"
+        : enabledCategories
+            .map((c) => categoryLabels[c] ?? c)
+            .join(', ');
+    return OutlinedButton.icon(
+      icon: const Icon(Icons.category_outlined, size: 16),
+      label: Expanded(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text("Category Preferences"),
+            Text(
+              subtitle,
+              style: TextStyle(fontSize: 11, color: Colors.grey.shade600),
+              overflow: TextOverflow.ellipsis,
+            ),
+          ],
+        ),
+      ),
+      onPressed: onTap,
     );
   }
 }
