@@ -27,84 +27,97 @@ class _State extends ConsumerState<ChildProfileScreen> {
       appBar: AppBar(
         title: Text(_isAdult ? "Set up your profile" : "Add your child"),
       ),
-      body: Padding(
-        padding: const EdgeInsets.all(22),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            _KindToggle(
-              value: _kind,
-              onChanged: (k) => setState(() {
-                _kind = k;
-                _dob = null; // different valid ranges — force re-pick
-              }),
-            ),
-            const SizedBox(height: 16),
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: Colors.green.shade50,
-                borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: Colors.green.shade200),
+      body: SafeArea(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.fromLTRB(22, 22, 22, 22),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              _KindToggle(
+                value: _kind,
+                onChanged: (k) => setState(() {
+                  _kind = k;
+                  _dob = null; // different valid ranges — force re-pick
+                }),
               ),
-              child: Row(
-                children: [
-                  Icon(Icons.lock_outline,
-                      size: 18, color: Colors.green.shade700),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      "This stays on this device only — encrypted and never uploaded.",
-                      style: TextStyle(
-                        fontSize: 12.5,
-                        color: Colors.green.shade900,
-                        fontWeight: FontWeight.w500,
+              const SizedBox(height: 16),
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.green.shade50,
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: Colors.green.shade200),
+                ),
+                child: Row(
+                  children: [
+                    Icon(Icons.lock_outline,
+                        size: 18, color: Colors.green.shade700),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        "This stays on this device only — encrypted and never uploaded.",
+                        style: TextStyle(
+                          fontSize: 12.5,
+                          color: Colors.green.shade900,
+                          fontWeight: FontWeight.w500,
+                        ),
                       ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
-            ),
-            const SizedBox(height: 22),
-            TextField(
-              controller: _name,
-              decoration: InputDecoration(
-                labelText: _isAdult ? "Your name" : "Name or nickname",
+              const SizedBox(height: 22),
+              TextField(
+                controller: _name,
+                textCapitalization: TextCapitalization.words,
+                textInputAction: TextInputAction.next,
+                decoration: InputDecoration(
+                  labelText: _isAdult ? "Your name" : "Name or nickname",
+                ),
               ),
+              const SizedBox(height: 16),
+              ListTile(
+                contentPadding: EdgeInsets.zero,
+                title: Text(_dob == null
+                    ? (_isAdult ? "Pick your date of birth" : "Pick date of birth")
+                    : "DOB: ${_dob!.toIso8601String().substring(0, 10)}"),
+                trailing: const Icon(Icons.calendar_today),
+                onTap: _pickDob,
+              ),
+              const SizedBox(height: 16),
+              DropdownButtonFormField<Sex>(
+                value: _sex,
+                items: _isAdult
+                    ? const [
+                        DropdownMenuItem(
+                            value: Sex.girl, child: Text("Female")),
+                        DropdownMenuItem(value: Sex.boy, child: Text("Male")),
+                        DropdownMenuItem(
+                            value: Sex.other, child: Text("Prefer not to say")),
+                      ]
+                    : const [
+                        DropdownMenuItem(value: Sex.girl, child: Text("Girl")),
+                        DropdownMenuItem(value: Sex.boy, child: Text("Boy")),
+                        DropdownMenuItem(
+                            value: Sex.other, child: Text("Prefer not to say")),
+                      ],
+                onChanged: (v) => setState(() => _sex = v!),
+                decoration: const InputDecoration(labelText: "Sex"),
+              ),
+            ],
+          ),
+        ),
+      ),
+      bottomNavigationBar: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(22, 8, 22, 12),
+          child: FilledButton(
+            onPressed: _canSubmit ? _reviewAndSubmit : null,
+            style: FilledButton.styleFrom(
+              minimumSize: const Size.fromHeight(48),
             ),
-            const SizedBox(height: 16),
-            ListTile(
-              title: Text(_dob == null
-                  ? (_isAdult ? "Pick your date of birth" : "Pick date of birth")
-                  : "DOB: ${_dob!.toIso8601String().substring(0, 10)}"),
-              trailing: const Icon(Icons.calendar_today),
-              onTap: _pickDob,
-            ),
-            const SizedBox(height: 16),
-            DropdownButtonFormField<Sex>(
-              value: _sex,
-              items: _isAdult
-                  ? const [
-                      DropdownMenuItem(value: Sex.girl, child: Text("Female")),
-                      DropdownMenuItem(value: Sex.boy, child: Text("Male")),
-                      DropdownMenuItem(
-                          value: Sex.other, child: Text("Prefer not to say")),
-                    ]
-                  : const [
-                      DropdownMenuItem(value: Sex.girl, child: Text("Girl")),
-                      DropdownMenuItem(value: Sex.boy, child: Text("Boy")),
-                      DropdownMenuItem(
-                          value: Sex.other, child: Text("Prefer not to say")),
-                    ],
-              onChanged: (v) => setState(() => _sex = v!),
-              decoration: const InputDecoration(labelText: "Sex"),
-            ),
-            const Spacer(),
-            FilledButton(
-              onPressed: _canSubmit ? _reviewAndSubmit : null,
-              child: const Text("Next"),
-            ),
-          ],
+            child: const Text("Next"),
+          ),
         ),
       ),
     );
