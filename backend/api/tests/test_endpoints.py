@@ -17,13 +17,13 @@ def seed_tasks(db):
     tag = Tag.objects.create(name="atm-use", category=Tag.Category.FINANCIAL)
 
     boil = Task.objects.create(
-        slug="boil-water", title="Boil water", how_to_md="_", min_age=7, max_age=11, is_published=True
+        slug="boil-water", title="Boil water", how_to_md="_", min_age=7, max_age=11, status="approved"
     )
     boil.environments.add(urban, rural)
     boil.tags.add(tag)
 
     pasta = Task.objects.create(
-        slug="cook-pasta", title="Cook pasta", how_to_md="_", min_age=9, max_age=11, is_published=True
+        slug="cook-pasta", title="Cook pasta", how_to_md="_", min_age=9, max_age=11, status="approved"
     )
     pasta.environments.add(urban)
     pasta.tags.add(tag)

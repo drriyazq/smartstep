@@ -5,45 +5,36 @@ import 'package:flutter_markdown/flutter_markdown.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../data/api/reward_repository.dart';
-import '../../data/api/task_repository.dart';
 import '../../data/local/active_child.dart';
+import '../../data/local/custom_task.dart';
 import '../../data/local/hive_setup.dart';
 import '../../data/local/task_progress.dart';
-import '../../domain/models.dart';
 import '../../providers.dart';
 import 'reward_picker_sheet.dart';
 
-class TaskDetailScreen extends ConsumerWidget {
-  const TaskDetailScreen({super.key, required this.taskSlug});
-  final String taskSlug;
+class CustomTaskDetailScreen extends ConsumerWidget {
+  const CustomTaskDetailScreen({super.key, required this.taskId});
+  final String taskId;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final cached = ref.read(taskRepositoryProvider).cached ?? const <Task>[];
-    Task? taskNullable;
-    for (final t in cached) {
-      if (t.slug == taskSlug) {
-        taskNullable = t;
-        break;
-      }
-    }
+    // Watch so undo/complete triggers rebuild.
+    ref.watch(progressVersionProvider);
 
-    if (taskNullable == null) {
+    final task = HiveSetup.customTaskBox.get(taskId);
+
+    if (task == null) {
       return Scaffold(
         appBar: AppBar(title: const Text("Task")),
-        body: const Center(child: Text("Task not found in cache.")),
+        body: const Center(child: Text("Task not found.")),
       );
     }
-    final task = taskNullable;
 
-    final activeId = ref.read(activeChildIdProvider);
-    final child = HiveSetup.childBox.get(activeId)!;
-    final progressKey = TaskProgress.key(child.id, task.slug);
+    final childId = ref.read(activeChildIdProvider);
+    final progressKey = TaskProgress.key(childId, task.progressSlug);
     final existing = HiveSetup.progressBox.get(progressKey);
 
-    // Retrieve stored reward title if the task was completed.
-    final rewardKey = 'reward::${child.id}::${task.slug}';
+    final rewardKey = 'reward::$childId::${task.progressSlug}';
     final savedReward = HiveSetup.sessionBox.get(rewardKey) as String?;
 
     return Scaffold(
@@ -51,18 +42,13 @@ class TaskDetailScreen extends ConsumerWidget {
       body: ListView(
         padding: const EdgeInsets.all(20),
         children: [
-          _sectionHeader(context, "How to"),
-          MarkdownBody(data: task.howToMd, shrinkWrap: true),
-          if (task.safetyMd.isNotEmpty) ...[
-            const SizedBox(height: 24),
-            _sectionHeader(context, "Safety"),
-            Card(
-              color: Colors.amber.shade50,
-              child: Padding(
-                padding: const EdgeInsets.all(12),
-                child: MarkdownBody(data: task.safetyMd, shrinkWrap: true),
-              ),
+          if (task.howToMd.isNotEmpty) ...[
+            Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: Text("How to",
+                  style: Theme.of(context).textTheme.titleLarge),
             ),
+            MarkdownBody(data: task.howToMd, shrinkWrap: true),
           ],
           if (task.parentNoteMd.isNotEmpty) ...[
             const SizedBox(height: 24),
@@ -78,76 +64,50 @@ class TaskDetailScreen extends ConsumerWidget {
                     ? Text("Reward: $savedReward",
                         style: TextStyle(color: Colors.green.shade700))
                     : null,
+                trailing: TextButton(
+                  onPressed: () => _uncomplete(ref, task, childId),
+                  child: const Text("Undo"),
+                ),
               ),
             )
-          else ...[
+          else
             FilledButton.icon(
               icon: const Icon(Icons.check),
               label: const Text("Mark complete"),
-              onPressed: () => _markComplete(context, ref, task, child.id),
+              onPressed: () => _markComplete(context, ref, task, childId),
             ),
-            const SizedBox(height: 8),
-            Row(
-              children: [
-                Expanded(
-                  child: OutlinedButton(
-                    onPressed: () => _skip(
-                        context, ref, task, child.id, ProgressStatus.skippedKnown),
-                    child: const Text("Already knows"),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: OutlinedButton(
-                    onPressed: () => _skip(
-                        context, ref, task, child.id, ProgressStatus.skippedUnsuitable),
-                    child: const Text("Not suitable"),
-                  ),
-                ),
-              ],
-            ),
-          ],
         ],
       ),
     );
   }
 
-  Widget _sectionHeader(BuildContext context, String label) => Padding(
-        padding: const EdgeInsets.only(bottom: 8),
-        child: Text(label, style: Theme.of(context).textTheme.titleLarge),
-      );
-
   Future<void> _markComplete(
     BuildContext context,
     WidgetRef ref,
-    Task task,
+    CustomTask task,
     String childId,
   ) async {
-    final child = HiveSetup.childBox.get(childId)!;
     final reward = await showModalBottomSheet<String?>(
       context: context,
       isScrollControlled: true,
       builder: (_) => RewardPickerSheet(childId: childId),
     );
-    // null = sheet dismissed without choosing; empty string = "skip reward"
     if (reward == null) return;
 
-    final key = TaskProgress.key(childId, task.slug);
+    final key = TaskProgress.key(childId, task.progressSlug);
     await HiveSetup.progressBox.put(
       key,
       TaskProgress(
-        taskSlug: task.slug,
+        taskSlug: task.progressSlug,
         childId: childId,
         status: ProgressStatus.completed,
         completedAt: DateTime.now(),
       ),
     );
 
-    // Store the reward title so the detail screen can show it later.
-    final rewardKey = 'reward::$childId::${task.slug}';
+    final rewardKey = 'reward::$childId::${task.progressSlug}';
     await HiveSetup.sessionBox.put(rewardKey, reward);
 
-    // Signal the dashboard to rebuild.
     ref.read(progressVersionProvider.notifier).state++;
 
     if (context.mounted) {
@@ -173,32 +133,17 @@ class TaskDetailScreen extends ConsumerWidget {
         ),
       );
     }
-
-    // Fire-and-forget telemetry — anonymous.
-    unawaited(ref.read(_postCompletionProvider((
-      taskSlug: task.slug,
-      ageBand: child.ageBand(DateTime.now()),
-      environment: child.environment.name,
-    )).future));
   }
 
-  Future<void> _skip(
-    BuildContext context,
+  Future<void> _uncomplete(
     WidgetRef ref,
-    Task task,
+    CustomTask task,
     String childId,
-    ProgressStatus status,
   ) async {
-    final key = TaskProgress.key(childId, task.slug);
-    await HiveSetup.progressBox.put(
-      key,
-      TaskProgress(taskSlug: task.slug, childId: childId, status: status),
-    );
-
-    // Signal the dashboard to rebuild.
+    final key = TaskProgress.key(childId, task.progressSlug);
+    await HiveSetup.progressBox.delete(key);
+    await HiveSetup.sessionBox.delete('reward::$childId::${task.progressSlug}');
     ref.read(progressVersionProvider.notifier).state++;
-
-    if (context.mounted) context.pop();
   }
 }
 
@@ -264,16 +209,3 @@ class _ParentNoteCardState extends State<_ParentNoteCard> {
     );
   }
 }
-
-typedef _TelemetryArgs = ({String taskSlug, String ageBand, String environment});
-
-final _postCompletionProvider = FutureProvider.family<void, _TelemetryArgs>(
-  (ref, args) async {
-    final repo = ref.read(rewardRepositoryProvider);
-    await repo.postCompletion(
-      taskSlug: args.taskSlug,
-      ageBand: args.ageBand,
-      environment: args.environment,
-    );
-  },
-);

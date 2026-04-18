@@ -5,6 +5,8 @@ import 'package:go_router/go_router.dart';
 import '../../data/api/task_repository.dart';
 import '../../data/local/active_child.dart';
 import '../../data/local/child_profile.dart';
+import '../../data/local/custom_reward.dart';
+import '../../data/local/custom_task.dart';
 import '../../data/local/hive_setup.dart';
 import '../../data/local/task_progress.dart';
 import '../../providers.dart';
@@ -139,6 +141,267 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     }
   }
 
+  // ── Custom Rewards ────────────────────────────────────────────────────────
+
+  Future<void> _addCustomReward() async {
+    final titleCtrl = TextEditingController();
+    final notesCtrl = TextEditingController();
+    bool isFree = true;
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (_) => StatefulBuilder(
+        builder: (ctx, setDlg) => AlertDialog(
+          title: const Text("Add custom reward"),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: titleCtrl,
+                autofocus: true,
+                textCapitalization: TextCapitalization.sentences,
+                decoration: const InputDecoration(
+                  labelText: "Reward title",
+                  hintText: "e.g. 30 min extra screen time",
+                  border: OutlineInputBorder(),
+                ),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: notesCtrl,
+                decoration: const InputDecoration(
+                  labelText: "Notes (optional)",
+                  border: OutlineInputBorder(),
+                ),
+              ),
+              const SizedBox(height: 8),
+              CheckboxListTile(
+                value: isFree,
+                contentPadding: EdgeInsets.zero,
+                title: const Text("No cost involved"),
+                onChanged: (v) => setDlg(() => isFree = v ?? true),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text("Cancel"),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              child: const Text("Add"),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    if (confirmed != true) return;
+    final title = titleCtrl.text.trim();
+    if (title.isEmpty) return;
+
+    final id = DateTime.now().millisecondsSinceEpoch.toString();
+    final reward = CustomReward(
+      id: id,
+      childId: _child.id,
+      title: title,
+      notes: notesCtrl.text.trim(),
+      isFree: isFree,
+    );
+    await HiveSetup.customRewardBox.put(id, reward);
+    if (mounted) setState(() {});
+  }
+
+  Future<void> _deleteCustomReward(String id) async {
+    await HiveSetup.customRewardBox.delete(id);
+    if (mounted) setState(() {});
+  }
+
+  // ── Custom Tasks ──────────────────────────────────────────────────────────
+
+  Future<void> _addCustomTask() async {
+    final titleCtrl = TextEditingController();
+    final howToCtrl = TextEditingController();
+    final noteCtrl = TextEditingController();
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text("Add custom task"),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: titleCtrl,
+                autofocus: true,
+                textCapitalization: TextCapitalization.sentences,
+                decoration: const InputDecoration(
+                  labelText: "Task title",
+                  hintText: "e.g. Pack school bag independently",
+                  border: OutlineInputBorder(),
+                ),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: howToCtrl,
+                maxLines: 3,
+                textCapitalization: TextCapitalization.sentences,
+                decoration: const InputDecoration(
+                  labelText: "How to (optional)",
+                  hintText: "Steps or tips for the child",
+                  border: OutlineInputBorder(),
+                ),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: noteCtrl,
+                maxLines: 2,
+                textCapitalization: TextCapitalization.sentences,
+                decoration: const InputDecoration(
+                  labelText: "Parent note (optional)",
+                  hintText: "Why this matters",
+                  border: OutlineInputBorder(),
+                ),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text("Cancel"),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text("Add"),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true) return;
+    final title = titleCtrl.text.trim();
+    if (title.isEmpty) return;
+
+    final id = DateTime.now().millisecondsSinceEpoch.toString();
+    final task = CustomTask(
+      id: id,
+      childId: _child.id,
+      title: title,
+      howToMd: howToCtrl.text.trim(),
+      parentNoteMd: noteCtrl.text.trim(),
+    );
+    await HiveSetup.customTaskBox.put(id, task);
+    ref.read(progressVersionProvider.notifier).state++;
+    if (mounted) setState(() {});
+  }
+
+  Future<void> _editCustomTask(CustomTask task) async {
+    final titleCtrl = TextEditingController(text: task.title);
+    final howToCtrl = TextEditingController(text: task.howToMd);
+    final noteCtrl = TextEditingController(text: task.parentNoteMd);
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text("Edit task"),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: titleCtrl,
+                autofocus: true,
+                textCapitalization: TextCapitalization.sentences,
+                decoration: const InputDecoration(
+                  labelText: "Task title",
+                  border: OutlineInputBorder(),
+                ),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: howToCtrl,
+                maxLines: 3,
+                textCapitalization: TextCapitalization.sentences,
+                decoration: const InputDecoration(
+                  labelText: "How to",
+                  border: OutlineInputBorder(),
+                ),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: noteCtrl,
+                maxLines: 2,
+                textCapitalization: TextCapitalization.sentences,
+                decoration: const InputDecoration(
+                  labelText: "Parent note",
+                  border: OutlineInputBorder(),
+                ),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text("Cancel"),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text("Save"),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true) return;
+    final title = titleCtrl.text.trim();
+    if (title.isEmpty) return;
+
+    final updated = CustomTask(
+      id: task.id,
+      childId: task.childId,
+      title: title,
+      howToMd: howToCtrl.text.trim(),
+      parentNoteMd: noteCtrl.text.trim(),
+    );
+    await HiveSetup.customTaskBox.put(task.id, updated);
+    ref.read(progressVersionProvider.notifier).state++;
+    if (mounted) setState(() {});
+  }
+
+  Future<void> _deleteCustomTask(CustomTask task) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text("Delete task?"),
+        content: Text('"${task.title}" will be removed, including any progress.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text("Cancel"),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(
+                backgroundColor: Theme.of(context).colorScheme.error),
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text("Delete"),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+    await HiveSetup.customTaskBox.delete(task.id);
+    // Remove associated progress
+    final progressKey = TaskProgress.key(task.childId, task.progressSlug);
+    await HiveSetup.progressBox.delete(progressKey);
+    await HiveSetup.sessionBox.delete('reward::${task.childId}::${task.progressSlug}');
+    ref.read(progressVersionProvider.notifier).state++;
+    if (mounted) setState(() {});
+  }
+
   @override
   Widget build(BuildContext context) {
     final child = _child;
@@ -163,6 +426,14 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
         ref.read(taskRepositoryProvider).cached?.length ?? 0;
 
     final initials = child.name.trim().split(RegExp(r'\s+')).take(2).map((w) => w[0].toUpperCase()).join();
+
+    // Custom data for this child
+    final customRewards = HiveSetup.customRewardBox.values
+        .where((r) => r.childId == child.id)
+        .toList();
+    final customTasks = HiveSetup.customTaskBox.values
+        .where((t) => t.childId == child.id)
+        .toList();
 
     return Scaffold(
       appBar: AppBar(title: const Text("Profile")),
@@ -333,6 +604,135 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
             label: const Text("Add another child"),
             onPressed: () => context.push('/onboarding/child?adding=true'),
           ),
+          const SizedBox(height: 32),
+
+          // ── Custom Rewards ────────────────────────────────────────
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  "Custom Rewards",
+                  style: Theme.of(context)
+                      .textTheme
+                      .titleMedium
+                      ?.copyWith(fontWeight: FontWeight.w700),
+                ),
+              ),
+              TextButton.icon(
+                icon: const Icon(Icons.add, size: 16),
+                label: const Text("Add"),
+                onPressed: _addCustomReward,
+              ),
+            ],
+          ),
+          const SizedBox(height: 4),
+          Text(
+            "These appear in the reward picker alongside the built-in rewards.",
+            style: Theme.of(context)
+                .textTheme
+                .bodySmall
+                ?.copyWith(color: Colors.grey.shade600),
+          ),
+          const SizedBox(height: 8),
+          if (customRewards.isEmpty)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 8),
+              child: Text(
+                "No custom rewards yet.",
+                style: TextStyle(color: Colors.grey.shade500),
+              ),
+            )
+          else
+            for (final r in customRewards)
+              Card(
+                margin: const EdgeInsets.only(bottom: 6),
+                child: ListTile(
+                  title: Text(r.title),
+                  subtitle: r.notes.isNotEmpty ? Text(r.notes) : null,
+                  trailing: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      if (!r.isFree)
+                        const Icon(Icons.attach_money,
+                            size: 16, color: Colors.grey),
+                      IconButton(
+                        icon: Icon(Icons.delete_outline,
+                            color: cs.error, size: 20),
+                        onPressed: () => _deleteCustomReward(r.id),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+          const SizedBox(height: 32),
+
+          // ── Custom Tasks ──────────────────────────────────────────
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  "My Custom Tasks",
+                  style: Theme.of(context)
+                      .textTheme
+                      .titleMedium
+                      ?.copyWith(fontWeight: FontWeight.w700),
+                ),
+              ),
+              TextButton.icon(
+                icon: const Icon(Icons.add, size: 16),
+                label: const Text("Add"),
+                onPressed: _addCustomTask,
+              ),
+            ],
+          ),
+          const SizedBox(height: 4),
+          Text(
+            "Custom tasks appear in a \"My Tasks\" section on the dashboard.",
+            style: Theme.of(context)
+                .textTheme
+                .bodySmall
+                ?.copyWith(color: Colors.grey.shade600),
+          ),
+          const SizedBox(height: 8),
+          if (customTasks.isEmpty)
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 8),
+              child: Text(
+                "No custom tasks yet.",
+                style: TextStyle(color: Colors.grey.shade500),
+              ),
+            )
+          else
+            for (final t in customTasks)
+              Card(
+                margin: const EdgeInsets.only(bottom: 6),
+                child: ListTile(
+                  title: Text(t.title),
+                  subtitle: t.howToMd.isNotEmpty
+                      ? Text(
+                          t.howToMd,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(fontSize: 12),
+                        )
+                      : null,
+                  trailing: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      IconButton(
+                        icon: const Icon(Icons.edit_outlined,
+                            size: 20, color: Colors.grey),
+                        onPressed: () => _editCustomTask(t),
+                      ),
+                      IconButton(
+                        icon: Icon(Icons.delete_outline,
+                            color: cs.error, size: 20),
+                        onPressed: () => _deleteCustomTask(t),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
           const SizedBox(height: 32),
 
           // ── Danger zone ───────────────────────────────────────────

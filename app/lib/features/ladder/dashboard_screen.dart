@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../../data/api/task_repository.dart';
 import '../../data/local/active_child.dart';
 import '../../data/local/child_profile.dart';
+import '../../data/local/custom_task.dart';
 import '../../data/local/hive_setup.dart';
 import '../../data/local/task_progress.dart';
 import '../../domain/ladder.dart';
@@ -46,6 +47,11 @@ final _catalogProvider = FutureProvider<List<Task>>((ref) async {
           icon: Icons.lightbulb_outlined,
           label: 'Thinking',
           color: const Color(0xFF00695C),
+        ),
+      'custom' => (
+          icon: Icons.star_outline,
+          label: 'My Tasks',
+          color: const Color(0xFF880E4F),
         ),
       _ => (
           icon: Icons.category_outlined,
@@ -195,6 +201,7 @@ class _LadderList extends StatelessWidget {
     };
     final taskBySlug = {for (final t in tasks) t.slug: t};
 
+    // API tasks grouped by category
     final grouped = <String, List<_TaskRow>>{};
     for (final t in tasks) {
       final state = computeLadderState(task: t, progressBySlug: progress);
@@ -218,6 +225,12 @@ class _LadderList extends StatelessWidget {
     }
     final categories = grouped.keys.toList()..sort();
 
+    // Custom tasks for this child
+    final customTasks = HiveSetup.customTaskBox.values
+        .where((t) => t.childId == childId)
+        .toList();
+
+    // Aggregate counts
     final completedCount = progress.values
         .where((p) => p.status == ProgressStatus.completed)
         .length;
@@ -225,7 +238,7 @@ class _LadderList extends StatelessWidget {
         .where((p) => p.satisfies && p.status != ProgressStatus.completed)
         .length;
     final doneCount = completedCount + satisfiedCount;
-    final total = tasks.length;
+    final total = tasks.length + customTasks.length;
 
     return ListView(
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
@@ -242,6 +255,13 @@ class _LadderList extends StatelessWidget {
           ...grouped[c]!.map(
             (row) => _buildTile(context, row, c, taskBySlug, progress),
           ),
+          const SizedBox(height: 20),
+        ],
+        if (customTasks.isNotEmpty) ...[
+          _CustomCategoryHeader(tasks: customTasks, childId: childId),
+          const SizedBox(height: 8),
+          for (final ct in customTasks)
+            _buildCustomTile(context, ct, progress),
           const SizedBox(height: 20),
         ],
       ],
@@ -309,6 +329,37 @@ class _LadderList extends StatelessWidget {
                 }
               }
             : null,
+      ),
+    );
+  }
+
+  Widget _buildCustomTile(
+    BuildContext context,
+    CustomTask ct,
+    Map<String, TaskProgress> progress,
+  ) {
+    final prog = progress[ct.progressSlug];
+    final isDone = prog?.status == ProgressStatus.completed;
+
+    return Card(
+      margin: const EdgeInsets.only(bottom: 6),
+      child: ListTile(
+        leading: Icon(
+          isDone ? Icons.check_circle : Icons.play_circle_outline,
+          color: isDone ? Colors.green.shade600 : const Color(0xFF880E4F),
+          size: 26,
+        ),
+        title: Text(
+          ct.title,
+          style: const TextStyle(fontWeight: FontWeight.w500),
+        ),
+        subtitle: Text(
+          isDone ? "Completed" : "Ready to try",
+          style: const TextStyle(fontSize: 12),
+        ),
+        trailing: Icon(Icons.chevron_right,
+            color: Colors.grey.shade400, size: 20),
+        onTap: () => context.push("/custom-task/${ct.id}"),
       ),
     );
   }
@@ -538,6 +589,53 @@ class _CategoryHeader extends StatelessWidget {
         ),
         Text(
           "$doneInCat / ${rows.length}",
+          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                color: Colors.grey.shade600,
+                fontWeight: FontWeight.w500,
+              ),
+        ),
+      ],
+    );
+  }
+}
+
+class _CustomCategoryHeader extends StatelessWidget {
+  const _CustomCategoryHeader(
+      {required this.tasks, required this.childId});
+  final List<CustomTask> tasks;
+  final String childId;
+
+  @override
+  Widget build(BuildContext context) {
+    final meta = _categoryMeta('custom');
+    final doneCount = tasks.where((t) {
+      final prog = HiveSetup.progressBox
+          .get(TaskProgress.key(childId, t.progressSlug));
+      return prog?.status == ProgressStatus.completed;
+    }).length;
+
+    return Row(
+      children: [
+        Container(
+          padding: const EdgeInsets.all(6),
+          decoration: BoxDecoration(
+            color: meta.color.withOpacity(0.1),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Icon(meta.icon, color: meta.color, size: 18),
+        ),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Text(
+            meta.label,
+            style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                  fontWeight: FontWeight.w700,
+                  color: meta.color,
+                ),
+          ),
+        ),
+        Text(
+          "$doneCount / ${tasks.length}",
           style: Theme.of(context).textTheme.bodySmall?.copyWith(
                 color: Colors.grey.shade600,
                 fontWeight: FontWeight.w500,

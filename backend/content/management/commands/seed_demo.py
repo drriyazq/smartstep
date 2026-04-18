@@ -78,7 +78,7 @@ class Command(BaseCommand):
                     "safety_md": "Parent must be present for first attempt.",
                     "min_age": lo,
                     "max_age": hi,
-                    "is_published": True,
+                    "status": "approved",
                 },
             )
             task.environments.set(Environment.objects.filter(kind__in=envs))
@@ -110,7 +110,7 @@ class Command(BaseCommand):
                         "min_age": lo,
                         "max_age": hi,
                         "is_free": is_free,
-                        "is_published": True,
+                        "status": "approved",
                     },
                 )
 
