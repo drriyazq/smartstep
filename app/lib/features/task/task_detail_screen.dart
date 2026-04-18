@@ -129,7 +129,28 @@ class TaskDetailScreen extends ConsumerWidget {
         completedAt: DateTime.now(),
       ),
     );
-    if (context.mounted) context.pop();
+
+    if (context.mounted) {
+      context.pop();
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Row(
+            children: [
+              const Icon(Icons.check_circle, color: Colors.white),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  '"${task.title}" completed! Reward: $reward',
+                  maxLines: 2,
+                ),
+              ),
+            ],
+          ),
+          backgroundColor: Colors.green.shade700,
+          duration: const Duration(seconds: 4),
+        ),
+      );
+    }
 
     // Fire-and-forget telemetry — anonymous.
     unawaited(ref.read(_postCompletionProvider((

@@ -15,7 +15,7 @@ const baselineQuestions = <BaselineQuestion>[
   ),
   BaselineQuestion(
     prompt: "Does your child already count coins and notes correctly?",
-    bypassSlugs: ["count-change"],
+    bypassSlugs: ["count-change", "count-coins-to-total"],
   ),
   BaselineQuestion(
     prompt: "Has your child safely boiled water unaided before?",
@@ -28,5 +28,13 @@ const baselineQuestions = <BaselineQuestion>[
   BaselineQuestion(
     prompt: "Does your child already pack their own lunchbox?",
     bypassSlugs: ["pack-lunchbox"],
+  ),
+  BaselineQuestion(
+    prompt: "Can your child navigate familiar local streets independently?",
+    bypassSlugs: ["cross-busy-intersection-solo"],
+  ),
+  BaselineQuestion(
+    prompt: "Does your child know how to spot and avoid suspicious content online?",
+    bypassSlugs: ["close-suspicious-popup"],
   ),
 ];

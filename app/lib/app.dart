@@ -8,6 +8,7 @@ import 'features/onboarding/baseline_screen.dart';
 import 'features/onboarding/child_profile_screen.dart';
 import 'features/onboarding/environment_screen.dart';
 import 'features/onboarding/phone_screen.dart';
+import 'features/profile/profile_screen.dart';
 import 'features/task/task_detail_screen.dart';
 
 final _router = GoRouter(
@@ -17,15 +18,12 @@ final _router = GoRouter(
     final onboardingPath = state.matchedLocation.startsWith("/onboarding") ||
         state.matchedLocation == "/phone";
     if (hasProfile && onboardingPath) return "/dashboard";
-    if (!hasProfile && state.matchedLocation == "/dashboard") return "/phone";
+    if (!hasProfile && !onboardingPath) return "/phone";
     return null;
   },
   routes: [
     GoRoute(path: "/phone", builder: (_, __) => const PhoneScreen()),
-    GoRoute(
-      path: "/onboarding/child",
-      builder: (_, __) => const ChildProfileScreen(),
-    ),
+    GoRoute(path: "/onboarding/child", builder: (_, __) => const ChildProfileScreen()),
     GoRoute(
       path: "/onboarding/environment",
       builder: (_, state) =>
@@ -39,8 +37,10 @@ final _router = GoRouter(
     GoRoute(path: "/dashboard", builder: (_, __) => const DashboardScreen()),
     GoRoute(
       path: "/task/:slug",
-      builder: (_, state) => TaskDetailScreen(taskSlug: state.pathParameters["slug"]!),
+      builder: (_, state) =>
+          TaskDetailScreen(taskSlug: state.pathParameters["slug"]!),
     ),
+    GoRoute(path: "/profile", builder: (_, __) => const ProfileScreen()),
   ],
 );
 
@@ -52,8 +52,27 @@ class SmartStepApp extends ConsumerWidget {
     return MaterialApp.router(
       title: "SmartStep",
       theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFF2E6FF2)),
+        colorScheme: ColorScheme.fromSeed(
+          seedColor: const Color(0xFF1B6CA8),
+          brightness: Brightness.light,
+        ),
         useMaterial3: true,
+        appBarTheme: const AppBarTheme(
+          centerTitle: false,
+          elevation: 0,
+          scrolledUnderElevation: 1,
+        ),
+        cardTheme: CardTheme(
+          elevation: 0,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+            side: BorderSide(color: Colors.grey.shade200),
+          ),
+          margin: EdgeInsets.zero,
+        ),
+        listTileTheme: const ListTileThemeData(
+          contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+        ),
       ),
       routerConfig: _router,
     );
