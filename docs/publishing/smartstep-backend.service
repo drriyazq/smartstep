@@ -1,0 +1,50 @@
+# SmartStep backend — systemd unit
+#
+# Install on the VPS:
+#   sudo cp docs/publishing/smartstep-backend.service /etc/systemd/system/
+#   sudo systemctl daemon-reload
+#   sudo systemctl enable smartstep-backend
+#   sudo systemctl start smartstep-backend
+#
+# Before starting: install gunicorn inside the backend venv:
+#   cd /home/drriyazq/smartstep/backend
+#   venv/bin/pip install gunicorn
+#
+# Kill any pre-existing runserver first:
+#   pkill -f "manage.py runserver 0.0.0.0:8001"
+#
+# Check status:
+#   sudo systemctl status smartstep-backend
+#   sudo journalctl -u smartstep-backend -f
+
+[Unit]
+Description=SmartStep backend (Django + Gunicorn)
+After=network.target
+
+[Service]
+Type=notify
+User=drriyazq
+Group=drriyazq
+WorkingDirectory=/home/drriyazq/smartstep/backend
+Environment="DJANGO_SETTINGS_MODULE=smartstep.settings.dev"
+Environment="PATH=/home/drriyazq/smartstep/backend/venv/bin"
+
+ExecStart=/home/drriyazq/smartstep/backend/venv/bin/gunicorn \
+    --config /home/drriyazq/smartstep/backend/gunicorn.conf.py \
+    smartstep.wsgi:application
+
+ExecReload=/bin/kill -s HUP $MAINPID
+KillMode=mixed
+Restart=on-failure
+RestartSec=5
+TimeoutStopSec=30
+
+# Resource / security hardening
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+ProtectHome=read-only
+ReadWritePaths=/home/drriyazq/smartstep/backend
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,18 @@
+# Copy this file to android/key.properties and fill in real values.
+# key.properties is gitignored — never commit it.
+#
+# To generate the upload keystore, run (from any folder):
+#
+#   keytool -genkey -v -keystore %USERPROFILE%\smartstep-upload.jks \
+#           -storetype JKS -keyalg RSA -keysize 2048 -validity 10000 \
+#           -alias smartstep-upload
+#
+# (Windows path example; on macOS/Linux use $HOME/smartstep-upload.jks)
+#
+# Back up the .jks file in two places (cloud + offline) — losing it means
+# you cannot update this app on Play Store ever again.
+
+storeFile=/ABSOLUTE/PATH/TO/smartstep-upload.jks
+storePassword=YOUR_STORE_PASSWORD
+keyAlias=smartstep-upload
+keyPassword=YOUR_KEY_PASSWORD
