@@ -7,6 +7,7 @@ import '../../data/local/active_child.dart';
 import '../../data/local/child_profile.dart';
 import '../../data/local/hive_setup.dart';
 import '../../data/local/task_progress.dart';
+import '../../domain/adult_baseline.dart';
 import '../../domain/baseline.dart';
 
 String _sexParam(Sex sex) => switch (sex) {
@@ -33,18 +34,43 @@ class _State extends ConsumerState<BaselineScreen> {
   final _answers = <int, bool>{};
   bool _submitting = false;
 
+  List<_BaselineQ> _questionsFor(ChildProfile p) {
+    final age = p.ageOn(DateTime.now());
+    if (p.isAdult) {
+      return adultQuestionsForAge(age)
+          .map((q) => _BaselineQ(
+                category: q.category,
+                categoryLabel: q.categoryLabel,
+                tierLabel: q.tierLabel,
+                tier: q.tier.index,
+                prompt: q.prompt,
+                bypassTasksUpToAge: q.bypassTasksUpToAge,
+              ))
+          .toList();
+    }
+    return questionsForAge(age)
+        .map((q) => _BaselineQ(
+              category: q.category,
+              categoryLabel: q.categoryLabel,
+              tierLabel: q.tierLabel,
+              tier: q.tier.index,
+              prompt: q.prompt,
+              bypassTasksUpToAge: q.bypassTasksUpToAge,
+            ))
+        .toList();
+  }
+
   @override
   Widget build(BuildContext context) {
     final child = HiveSetup.childBox.get(widget.childId)!;
-    final age = child.ageOn(DateTime.now());
-    final questions = questionsForAge(age);
+    final questions = _questionsFor(child);
 
     if (questions.isEmpty) {
-      return _buildNoQuestionsScreen(context, child.name);
+      return _buildNoQuestionsScreen(context, child.name, child.isAdult);
     }
 
     // Group by category for scannable display
-    final byCategory = <String, List<({int index, BaselineQuestion q})>>{};
+    final byCategory = <String, List<({int index, _BaselineQ q})>>{};
     for (int i = 0; i < questions.length; i++) {
       byCategory
           .putIfAbsent(questions[i].category, () => [])
@@ -83,7 +109,9 @@ class _State extends ConsumerState<BaselineScreen> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        "What can ${child.name} already do?",
+                        child.isAdult
+                            ? "Where are you already strong?"
+                            : "What can ${child.name} already do?",
                         style: Theme.of(context)
                             .textTheme
                             .headlineSmall
@@ -91,7 +119,9 @@ class _State extends ConsumerState<BaselineScreen> {
                       ),
                       const SizedBox(height: 6),
                       Text(
-                        "Tick 'Yes' for skills they've already mastered — we'll skip those and focus on what's new. 'Not yet' or unanswered keeps them in the ladder.",
+                        child.isAdult
+                            ? "Tick 'Yes' for areas you've already got handled — we'll skip those and focus on what's next. 'Not yet' or unanswered keeps them in your ladder."
+                            : "Tick 'Yes' for skills they've already mastered — we'll skip those and focus on what's new. 'Not yet' or unanswered keeps them in the ladder.",
                         style: Theme.of(context)
                             .textTheme
                             .bodyMedium
@@ -145,7 +175,7 @@ class _State extends ConsumerState<BaselineScreen> {
     );
   }
 
-  Widget _buildNoQuestionsScreen(BuildContext context, String name) {
+  Widget _buildNoQuestionsScreen(BuildContext context, String name, bool isAdult) {
     return Scaffold(
       appBar: AppBar(title: const Text("Quick check-in")),
       body: Center(
@@ -158,13 +188,15 @@ class _State extends ConsumerState<BaselineScreen> {
                   size: 64, color: Colors.blueAccent),
               const SizedBox(height: 16),
               Text(
-                "Ready to start $name's journey!",
+                isAdult ? "Ready to begin, $name!" : "Ready to start $name's journey!",
                 style: Theme.of(context).textTheme.titleLarge,
                 textAlign: TextAlign.center,
               ),
               const SizedBox(height: 12),
               Text(
-                "We'll start with the foundational skills right from the beginning.",
+                isAdult
+                    ? "You're at the start of the adult ladder. We'll build up from the foundations."
+                    : "We'll start with the foundational skills right from the beginning.",
                 style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                       color: Colors.grey.shade600,
                     ),
@@ -199,10 +231,10 @@ class _State extends ConsumerState<BaselineScreen> {
     setState(() => _submitting = true);
     try {
       final child = HiveSetup.childBox.get(widget.childId)!;
-      final questions = questionsForAge(child.ageOn(DateTime.now()));
+      final questions = _questionsFor(child);
 
       // Collect Yes'd questions
-      final yesQuestions = <BaselineQuestion>[];
+      final yesQuestions = <_BaselineQ>[];
       for (final entry in _answers.entries) {
         if (entry.value == true && entry.key < questions.length) {
           yesQuestions.add(questions[entry.key]);
@@ -210,21 +242,27 @@ class _State extends ConsumerState<BaselineScreen> {
       }
 
       if (yesQuestions.isNotEmpty) {
-        // Fetch the child's task catalog
         final tasks = await ref.read(taskRepositoryProvider).fetchAll(
               environment: child.environment.name,
               sex: _sexParam(child.sex),
             );
 
-        // For each Yes'd question, bypass all matching tasks
+        // Adult vs child: bypass applies only within the relevant age slice
+        // so an adult "Yes" never touches child tasks and vice versa.
+        bool inKindAgeRange(int taskMinAge) {
+          if (child.isAdult) return taskMinAge >= 17;
+          return taskMinAge <= 16;
+        }
+
         for (final q in yesQuestions) {
           final matching = tasks.where((t) {
             final cat = t.tags.isEmpty ? 'other' : t.tags.first.category;
-            return cat == q.category && t.maxAge <= q.bypassTasksUpToAge;
+            return cat == q.category &&
+                t.maxAge <= q.bypassTasksUpToAge &&
+                inKindAgeRange(t.minAge);
           });
           for (final task in matching) {
             final key = TaskProgress.key(widget.childId, task.slug);
-            // Don't overwrite any existing progress (e.g. already completed)
             if (HiveSetup.progressBox.get(key) != null) continue;
             await HiveSetup.progressBox.put(
               key,
@@ -256,6 +294,25 @@ class _State extends ConsumerState<BaselineScreen> {
   }
 }
 
+/// View-model that unifies child + adult baseline questions so the UI and
+/// submit code don't need two parallel paths.
+class _BaselineQ {
+  const _BaselineQ({
+    required this.category,
+    required this.categoryLabel,
+    required this.tierLabel,
+    required this.tier,
+    required this.prompt,
+    required this.bypassTasksUpToAge,
+  });
+  final String category;
+  final String categoryLabel;
+  final String tierLabel;
+  final int tier;
+  final String prompt;
+  final int bypassTasksUpToAge;
+}
+
 class _QuestionCard extends StatelessWidget {
   const _QuestionCard({
     required this.question,
@@ -263,7 +320,7 @@ class _QuestionCard extends StatelessWidget {
     required this.onYes,
     required this.onNo,
   });
-  final BaselineQuestion question;
+  final _BaselineQ question;
   final bool? answer;
   final VoidCallback onYes;
   final VoidCallback onNo;
@@ -272,9 +329,9 @@ class _QuestionCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     final tierColor = switch (question.tier) {
-      BaselineTier.basic => Colors.green.shade600,
-      BaselineTier.intermediate => Colors.orange.shade700,
-      BaselineTier.advanced => Colors.purple.shade700,
+      0 => Colors.green.shade600,        // Basic
+      1 => Colors.orange.shade700,       // Intermediate
+      _ => Colors.purple.shade700,       // Advanced
     };
     return Container(
       margin: const EdgeInsets.only(bottom: 10),

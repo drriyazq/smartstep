@@ -302,12 +302,13 @@ class _TaskDetailState extends ConsumerState<TaskDetailScreen> {
             ),
           ],
 
-          // ── Parent note ─────────────────────────────────────────
+          // ── Parent note / "Why this matters" ────────────────────
           if (task.parentNoteMd.isNotEmpty) ...[
             const SizedBox(height: 24),
             _ParentNoteCard(
               content: task.parentNoteMd,
               onTapLink: _handleLinkTap,
+              isAdult: child.isAdult,
             ),
           ],
         ],
@@ -410,7 +411,12 @@ class _TaskDetailState extends ConsumerState<TaskDetailScreen> {
 
     if (!mounted) return;
     final shareMsg = isFullyDone
-        ? _buildShareMessage(child.name, task.title, reward)
+        ? _buildShareMessage(
+            child.name,
+            task.title,
+            reward,
+            isAdult: child.isAdult,
+          )
         : "";
     await showModalBottomSheet(
       context: context,
@@ -425,6 +431,7 @@ class _TaskDetailState extends ConsumerState<TaskDetailScreen> {
         practiceNumber: newCount,
         totalRequired: task.repetitionsRequired,
         isFullyDone: isFullyDone,
+        isAdult: child.isAdult,
       ),
     );
 
@@ -596,10 +603,21 @@ class _TaskDetailState extends ConsumerState<TaskDetailScreen> {
     );
   }
 
-  String _buildShareMessage(String childName, String taskTitle, String reward) {
+  String _buildShareMessage(
+    String name,
+    String taskTitle,
+    String reward, {
+    bool isAdult = false,
+  }) {
     final rewardLine = reward.isNotEmpty ? "\n🎁 Reward: $reward" : "";
+    if (isAdult) {
+      return "🌟 Small win today!\n\n"
+          "Just mastered \"$taskTitle\" — a real-world skill I'm glad to have checked off.$rewardLine\n\n"
+          "Growing up one skill at a time with SmartStep 🚀\n\n"
+          "#SmartStep #LifeSkills #GrowthMindset";
+    }
     return "🌟 Proud parent moment!\n\n"
-        "$childName just learned \"$taskTitle\" — "
+        "$name just learned \"$taskTitle\" — "
         "a real life skill that most kids never get taught!$rewardLine\n\n"
         "We are building life skills one step at a time with SmartStep 🚀\n\n"
         "#SmartStep #LifeSkills #ProudParent #GrowingUp";
@@ -998,9 +1016,14 @@ class _PracticeProgress extends StatelessWidget {
 }
 
 class _ParentNoteCard extends StatefulWidget {
-  const _ParentNoteCard({required this.content, required this.onTapLink});
+  const _ParentNoteCard({
+    required this.content,
+    required this.onTapLink,
+    this.isAdult = false,
+  });
   final String content;
   final void Function(String? href) onTapLink;
+  final bool isAdult;
 
   @override
   State<_ParentNoteCard> createState() => _ParentNoteCardState();
@@ -1028,12 +1051,19 @@ class _ParentNoteCardState extends State<_ParentNoteCard> {
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
               child: Row(
                 children: [
-                  Icon(Icons.family_restroom,
-                      color: Colors.teal.shade700, size: 20),
+                  Icon(
+                    widget.isAdult
+                        ? Icons.lightbulb_outline
+                        : Icons.family_restroom,
+                    color: Colors.teal.shade700,
+                    size: 20,
+                  ),
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
-                      "For Parents — Why This Matters",
+                      widget.isAdult
+                          ? "Why This Matters"
+                          : "For Parents — Why This Matters",
                       style: Theme.of(context).textTheme.titleSmall?.copyWith(
                             color: Colors.teal.shade800,
                             fontWeight: FontWeight.w700,
@@ -1076,6 +1106,7 @@ class _CelebrationSheet extends StatelessWidget {
     required this.practiceNumber,
     required this.totalRequired,
     required this.isFullyDone,
+    this.isAdult = false,
   });
   final String childName;
   final String taskTitle;
@@ -1084,6 +1115,7 @@ class _CelebrationSheet extends StatelessWidget {
   final int practiceNumber;
   final int totalRequired;
   final bool isFullyDone;
+  final bool isAdult;
 
   @override
   Widget build(BuildContext context) {
@@ -1103,7 +1135,9 @@ class _CelebrationSheet extends StatelessWidget {
               const SizedBox(height: 12),
               Text(
                 isFullyDone
-                    ? "$childName mastered a skill!"
+                    ? (isAdult
+                        ? "You mastered a skill!"
+                        : "$childName mastered a skill!")
                     : "Practice #$practiceNumber done!",
                 style: Theme.of(context)
                     .textTheme

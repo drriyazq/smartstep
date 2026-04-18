@@ -880,7 +880,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
 
           // ── All children ──────────────────────────────────────────
           Text(
-            "Children on This Device",
+            "Profiles on This Device",
             style: Theme.of(context)
                 .textTheme
                 .titleMedium
@@ -907,7 +907,34 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                         ),
                       ),
                     ),
-                    title: Text(c.name),
+                    title: Row(
+                      children: [
+                        Expanded(
+                          child: Text(c.name,
+                              overflow: TextOverflow.ellipsis),
+                        ),
+                        if (c.isAdult) ...[
+                          const SizedBox(width: 6),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 6, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: Colors.indigo.shade50,
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(color: Colors.indigo.shade200),
+                            ),
+                            child: Text(
+                              "Adult",
+                              style: TextStyle(
+                                fontSize: 10.5,
+                                fontWeight: FontWeight.w700,
+                                color: Colors.indigo.shade700,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
                     subtitle: Text(
                         "Age ${c.ageOn(DateTime.now())} · ${_envLabel(c.environment)}"),
                     trailing: c.id == child.id
@@ -956,7 +983,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
           const SizedBox(height: 8),
           OutlinedButton.icon(
             icon: const Icon(Icons.add),
-            label: const Text("Add Another Child"),
+            label: const Text("Add Another Profile"),
             onPressed: () => context.push('/onboarding/child?adding=true'),
           ),
           const SizedBox(height: 20),

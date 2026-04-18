@@ -21,14 +21,21 @@ String _sexParam(Sex sex) => switch (sex) {
 
 // Fetches all tasks for this child's environment and sex.
 // Age filtering happens in Flutter, not the API, so that tasks unlocked via
-// prerequisites always appear regardless of the child's age.
+// prerequisites always appear regardless of the user's age.
+// For adult profiles we show only adult-band tasks (minAge >= 17); for child
+// profiles we show only child-band tasks (minAge <= 16). Same backend feed,
+// different slices per profile kind.
 final _catalogProvider = FutureProvider<List<Task>>((ref) async {
   final activeId = ref.watch(activeChildIdProvider);
-  final child = HiveSetup.childBox.get(activeId)!;
-  return ref.read(taskRepositoryProvider).fetchAll(
-        environment: child.environment.name,
-        sex: _sexParam(child.sex),
+  final profile = HiveSetup.childBox.get(activeId)!;
+  final all = await ref.read(taskRepositoryProvider).fetchAll(
+        environment: profile.environment.name,
+        sex: _sexParam(profile.sex),
       );
+  if (profile.isAdult) {
+    return all.where((t) => t.minAge >= 17).toList(growable: false);
+  }
+  return all.where((t) => t.minAge <= 16).toList(growable: false);
 });
 
 ({IconData icon, String label, Color color}) _categoryMeta(String cat) =>
@@ -104,7 +111,11 @@ class DashboardScreen extends ConsumerWidget {
             children: [
               Flexible(
                 child: Text(
-                  "${child.name}'s Ladder",
+                  child.isAdult
+                      ? (hasMultiple
+                          ? "${child.name}'s Ladder"
+                          : "Your Ladder")
+                      : "${child.name}'s Ladder",
                   overflow: TextOverflow.ellipsis,
                 ),
               ),
@@ -161,7 +172,7 @@ class DashboardScreen extends ConsumerWidget {
             Padding(
               padding: const EdgeInsets.fromLTRB(20, 20, 20, 8),
               child: Text(
-                "Switch Child",
+                "Switch Profile",
                 style: Theme.of(context)
                     .textTheme
                     .titleMedium
@@ -181,7 +192,33 @@ class DashboardScreen extends ConsumerWidget {
                     ),
                   ),
                 ),
-                title: Text(c.name),
+                title: Row(
+                  children: [
+                    Expanded(
+                      child: Text(c.name, overflow: TextOverflow.ellipsis),
+                    ),
+                    if (c.isAdult) ...[
+                      const SizedBox(width: 6),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 6, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: Colors.indigo.shade50,
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: Colors.indigo.shade200),
+                        ),
+                        child: Text(
+                          "Adult",
+                          style: TextStyle(
+                            fontSize: 10.5,
+                            fontWeight: FontWeight.w700,
+                            color: Colors.indigo.shade700,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
                 subtitle: Text(
                     "Age ${c.ageOn(DateTime.now())} · ${c.environment.name[0].toUpperCase()}${c.environment.name.substring(1)}"),
                 trailing: c.id == activeId
@@ -202,7 +239,7 @@ class DashboardScreen extends ConsumerWidget {
               leading: const CircleAvatar(
                 child: Icon(Icons.add),
               ),
-              title: const Text("Add Another Child"),
+              title: const Text("Add Another Profile"),
               onTap: () {
                 Navigator.pop(context);
                 context.push('/onboarding/child?adding=true');

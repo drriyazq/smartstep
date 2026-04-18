@@ -17,16 +17,29 @@ class _State extends ConsumerState<ChildProfileScreen> {
   final _name = TextEditingController();
   DateTime? _dob;
   Sex _sex = Sex.other;
+  ProfileKind _kind = ProfileKind.child;
+
+  bool get _isAdult => _kind == ProfileKind.adult;
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text("Add your child")),
+      appBar: AppBar(
+        title: Text(_isAdult ? "Set up your profile" : "Add your child"),
+      ),
       body: Padding(
-        padding: const EdgeInsets.all(24),
+        padding: const EdgeInsets.all(22),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
+            _KindToggle(
+              value: _kind,
+              onChanged: (k) => setState(() {
+                _kind = k;
+                _dob = null; // different valid ranges — force re-pick
+              }),
+            ),
+            const SizedBox(height: 16),
             Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
@@ -41,7 +54,7 @@ class _State extends ConsumerState<ChildProfileScreen> {
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
-                      "This information stays on this device only — encrypted and never uploaded.",
+                      "This stays on this device only — encrypted and never uploaded.",
                       style: TextStyle(
                         fontSize: 12.5,
                         color: Colors.green.shade900,
@@ -55,12 +68,14 @@ class _State extends ConsumerState<ChildProfileScreen> {
             const SizedBox(height: 22),
             TextField(
               controller: _name,
-              decoration: const InputDecoration(labelText: "Name or nickname"),
+              decoration: InputDecoration(
+                labelText: _isAdult ? "Your name" : "Name or nickname",
+              ),
             ),
             const SizedBox(height: 16),
             ListTile(
               title: Text(_dob == null
-                  ? "Pick date of birth"
+                  ? (_isAdult ? "Pick your date of birth" : "Pick date of birth")
                   : "DOB: ${_dob!.toIso8601String().substring(0, 10)}"),
               trailing: const Icon(Icons.calendar_today),
               onTap: _pickDob,
@@ -68,12 +83,19 @@ class _State extends ConsumerState<ChildProfileScreen> {
             const SizedBox(height: 16),
             DropdownButtonFormField<Sex>(
               value: _sex,
-              items: const [
-                DropdownMenuItem(value: Sex.girl, child: Text("Girl")),
-                DropdownMenuItem(value: Sex.boy, child: Text("Boy")),
-                DropdownMenuItem(
-                    value: Sex.other, child: Text("Prefer not to say")),
-              ],
+              items: _isAdult
+                  ? const [
+                      DropdownMenuItem(value: Sex.girl, child: Text("Female")),
+                      DropdownMenuItem(value: Sex.boy, child: Text("Male")),
+                      DropdownMenuItem(
+                          value: Sex.other, child: Text("Prefer not to say")),
+                    ]
+                  : const [
+                      DropdownMenuItem(value: Sex.girl, child: Text("Girl")),
+                      DropdownMenuItem(value: Sex.boy, child: Text("Boy")),
+                      DropdownMenuItem(
+                          value: Sex.other, child: Text("Prefer not to say")),
+                    ],
               onChanged: (v) => setState(() => _sex = v!),
               decoration: const InputDecoration(labelText: "Sex"),
             ),
@@ -92,11 +114,14 @@ class _State extends ConsumerState<ChildProfileScreen> {
 
   Future<void> _pickDob() async {
     final now = DateTime.now();
+    final initialYears = _isAdult ? 30 : 9;
+    final minYears = _isAdult ? 18 : 5;
+    final maxYears = _isAdult ? 80 : 16;
     final picked = await showDatePicker(
       context: context,
-      initialDate: DateTime(now.year - 9, now.month, now.day),
-      firstDate: DateTime(now.year - 16),
-      lastDate: DateTime(now.year - 5),
+      initialDate: DateTime(now.year - initialYears, now.month, now.day),
+      firstDate: DateTime(now.year - maxYears),
+      lastDate: DateTime(now.year - minYears),
     );
     if (picked != null) setState(() => _dob = picked);
   }
@@ -110,14 +135,18 @@ class _State extends ConsumerState<ChildProfileScreen> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
-              "The following details will be saved on this device only:",
-              style: TextStyle(fontSize: 13),
+            Text(
+              _isAdult
+                  ? "The following will be saved on this device only:"
+                  : "The following details will be saved on this device only:",
+              style: const TextStyle(fontSize: 13),
             ),
             const SizedBox(height: 12),
+            _reviewRow("Profile type",
+                _isAdult ? "Adult (yourself)" : "Child"),
             _reviewRow("Name", _name.text.trim()),
-            _reviewRow("Date of birth",
-                _dob!.toIso8601String().substring(0, 10)),
+            _reviewRow(
+                "Date of birth", _dob!.toIso8601String().substring(0, 10)),
             _reviewRow("Sex", _sexLabel(_sex)),
             const SizedBox(height: 10),
             Text(
@@ -152,7 +181,7 @@ class _State extends ConsumerState<ChildProfileScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             SizedBox(
-              width: 90,
+              width: 100,
               child: Text(
                 label,
                 style: TextStyle(
@@ -174,8 +203,8 @@ class _State extends ConsumerState<ChildProfileScreen> {
       );
 
   String _sexLabel(Sex s) => switch (s) {
-        Sex.boy => "Boy",
-        Sex.girl => "Girl",
+        Sex.boy => _isAdult ? "Male" : "Boy",
+        Sex.girl => _isAdult ? "Female" : "Girl",
         Sex.other => "Prefer not to say",
       };
 
@@ -187,10 +216,122 @@ class _State extends ConsumerState<ChildProfileScreen> {
       dob: _dob!,
       sex: _sex,
       environment: Environment.urban, // picked on the next screen
+      kind: _kind,
     );
     await HiveSetup.childBox.put(id, profile);
     if (!mounted) return;
     final addingParam = widget.adding ? '&adding=true' : '';
     context.go("/onboarding/environment?childId=$id$addingParam");
+  }
+}
+
+class _KindToggle extends StatelessWidget {
+  const _KindToggle({required this.value, required this.onChanged});
+  final ProfileKind value;
+  final ValueChanged<ProfileKind> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          "Who is this profile for?",
+          style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                fontWeight: FontWeight.w700,
+                color: Colors.grey.shade700,
+              ),
+        ),
+        const SizedBox(height: 8),
+        Row(
+          children: [
+            Expanded(
+              child: _KindCard(
+                icon: Icons.child_care_outlined,
+                title: "My child",
+                subtitle: "Age 5–16",
+                selected: value == ProfileKind.child,
+                onTap: () => onChanged(ProfileKind.child),
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: _KindCard(
+                icon: Icons.person_outline,
+                title: "Myself",
+                subtitle: "Age 18+",
+                selected: value == ProfileKind.adult,
+                onTap: () => onChanged(ProfileKind.adult),
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+}
+
+class _KindCard extends StatelessWidget {
+  const _KindCard({
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+    required this.selected,
+    required this.onTap,
+  });
+  final IconData icon;
+  final String title;
+  final String subtitle;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(12),
+        onTap: onTap,
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 10),
+          decoration: BoxDecoration(
+            color: selected ? cs.primaryContainer : Colors.grey.shade50,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: selected ? cs.primary : Colors.grey.shade300,
+              width: selected ? 1.8 : 1,
+            ),
+          ),
+          child: Column(
+            children: [
+              Icon(
+                icon,
+                size: 28,
+                color: selected ? cs.onPrimaryContainer : Colors.grey.shade700,
+              ),
+              const SizedBox(height: 6),
+              Text(
+                title,
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w700,
+                  color:
+                      selected ? cs.onPrimaryContainer : Colors.black87,
+                ),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                subtitle,
+                style: TextStyle(
+                  fontSize: 11.5,
+                  color: Colors.grey.shade600,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 }
