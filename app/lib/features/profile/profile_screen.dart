@@ -7,6 +7,7 @@ import '../../data/local/active_child.dart';
 import '../../data/local/child_profile.dart';
 import '../../data/local/hive_setup.dart';
 import '../../data/local/task_progress.dart';
+import '../../providers.dart';
 
 class ProfileScreen extends ConsumerStatefulWidget {
   const ProfileScreen({super.key});
@@ -132,7 +133,10 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
         .toList();
     await HiveSetup.progressBox.deleteAll(keysToDelete);
     await HiveSetup.rewardUsageBox.clear();
-    if (mounted) setState(() {});
+    if (mounted) {
+      ref.read(progressVersionProvider.notifier).state++;
+      setState(() {});
+    }
   }
 
   @override

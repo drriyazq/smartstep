@@ -9,6 +9,7 @@ import '../../data/local/hive_setup.dart';
 import '../../data/local/task_progress.dart';
 import '../../domain/ladder.dart';
 import '../../domain/models.dart';
+import '../../providers.dart';
 
 // Auto-refreshes when the active child changes (different environment = new fetch).
 final _catalogProvider = FutureProvider<List<Task>>((ref) async {
@@ -59,6 +60,7 @@ class DashboardScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final activeId = ref.watch(activeChildIdProvider);
+    ref.watch(progressVersionProvider); // rebuild when any progress changes
     final child = HiveSetup.childBox.get(activeId)!;
     final asyncCatalog = ref.watch(_catalogProvider);
     final hasMultiple = HiveSetup.childBox.length > 1;

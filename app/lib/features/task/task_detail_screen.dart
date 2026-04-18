@@ -7,9 +7,11 @@ import 'package:go_router/go_router.dart';
 
 import '../../data/api/reward_repository.dart';
 import '../../data/api/task_repository.dart';
+import '../../data/local/active_child.dart';
 import '../../data/local/hive_setup.dart';
 import '../../data/local/task_progress.dart';
 import '../../domain/models.dart';
+import '../../providers.dart';
 import 'reward_picker_sheet.dart';
 
 class TaskDetailScreen extends ConsumerWidget {
@@ -34,7 +36,10 @@ class TaskDetailScreen extends ConsumerWidget {
       );
     }
     final task = taskNullable;
-    final child = HiveSetup.childBox.values.first;
+
+    // Use active child, not just the first child in the box.
+    final activeId = ref.read(activeChildIdProvider);
+    final child = HiveSetup.childBox.get(activeId)!;
     final progressKey = TaskProgress.key(child.id, task.slug);
     final existing = HiveSetup.progressBox.get(progressKey);
 
@@ -79,16 +84,16 @@ class TaskDetailScreen extends ConsumerWidget {
               children: [
                 Expanded(
                   child: OutlinedButton(
-                    onPressed: () =>
-                        _skip(context, task, child.id, ProgressStatus.skippedKnown),
+                    onPressed: () => _skip(
+                        context, ref, task, child.id, ProgressStatus.skippedKnown),
                     child: const Text("Already knows"),
                   ),
                 ),
                 const SizedBox(width: 8),
                 Expanded(
                   child: OutlinedButton(
-                    onPressed: () =>
-                        _skip(context, task, child.id, ProgressStatus.skippedUnsuitable),
+                    onPressed: () => _skip(
+                        context, ref, task, child.id, ProgressStatus.skippedUnsuitable),
                     child: const Text("Not suitable"),
                   ),
                 ),
@@ -130,6 +135,9 @@ class TaskDetailScreen extends ConsumerWidget {
       ),
     );
 
+    // Signal the dashboard to rebuild.
+    ref.read(progressVersionProvider.notifier).state++;
+
     if (context.mounted) {
       context.pop();
       ScaffoldMessenger.of(context).showSnackBar(
@@ -162,6 +170,7 @@ class TaskDetailScreen extends ConsumerWidget {
 
   Future<void> _skip(
     BuildContext context,
+    WidgetRef ref,
     Task task,
     String childId,
     ProgressStatus status,
@@ -171,6 +180,10 @@ class TaskDetailScreen extends ConsumerWidget {
       key,
       TaskProgress(taskSlug: task.slug, childId: childId, status: status),
     );
+
+    // Signal the dashboard to rebuild.
+    ref.read(progressVersionProvider.notifier).state++;
+
     if (context.mounted) context.pop();
   }
 }
@@ -200,7 +213,8 @@ class _ParentNoteCardState extends State<_ParentNoteCard> {
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
               child: Row(
                 children: [
-                  Icon(Icons.family_restroom, color: Colors.teal.shade700, size: 20),
+                  Icon(Icons.family_restroom,
+                      color: Colors.teal.shade700, size: 20),
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
