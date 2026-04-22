@@ -18,7 +18,7 @@ if (keystorePropertiesFile.exists()) {
 }
 
 android {
-    namespace = "com.smartstep.app"
+    namespace = "com.areafair.smartstep"
     compileSdk = 36
     ndkVersion = flutter.ndkVersion
 
@@ -32,7 +32,7 @@ android {
     }
 
     defaultConfig {
-        applicationId = "com.smartstep.app"
+        applicationId = "com.areafair.smartstep"
         minSdk = 23
         targetSdk = 36
         versionCode = flutter.versionCode

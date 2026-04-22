@@ -1,4 +1,4 @@
-package com.smartstep.app
+package com.areafair.smartstep
 
 import io.flutter.embedding.android.FlutterActivity
 
