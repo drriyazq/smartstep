@@ -144,6 +144,20 @@
     </div>
     <div class="sf-row">
       <div class="sf-field">
+        <label for="{{ form.religion.id_for_label }}">Religion</label>
+        {{ form.religion }}
+        {% if form.religion.errors %}<ul class="errorlist">{% for e in form.religion.errors %}<li>{{ e }}</li>{% endfor %}</ul>{% endif %}
+        <p class="helptext">{{ form.religion.help_text }}</p>
+      </div>
+      <div class="sf-field" style="display:flex;align-items:flex-end;">
+        <p class="helptext" style="margin:0;">
+          Leave blank → task is shown to <strong>all profiles</strong>.<br>
+          Select a religion → shown only to profiles that opted in and picked that religion.
+        </p>
+      </div>
+    </div>
+    <div class="sf-row">
+      <div class="sf-field">
         <label>Tags</label>
         <div class="sf-checks">
           {% for choice in form.tags %}{{ choice }}{% endfor %}

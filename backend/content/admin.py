@@ -13,10 +13,26 @@ from .models import Environment, PrerequisiteEdge, ReviewStatus, Tag, Task, Task
 
 # ── Screening form ──────────────────────────────────────────────────────────────
 
+RELIGION_CHOICES = [
+    ("", "Universal (no religion filter)"),
+    ("islam",        "Islam"),
+    ("christianity", "Christianity"),
+    ("hinduism",     "Hinduism"),
+    ("buddhism",     "Buddhism"),
+    ("sikhism",      "Sikhism"),
+]
+
+
 class TaskScreenForm(forms.Form):
     slug = forms.SlugField(max_length=80)
     title = forms.CharField(max_length=140)
     status = forms.ChoiceField(choices=ReviewStatus.choices)
+    religion = forms.ChoiceField(
+        choices=RELIGION_CHOICES,
+        required=False,
+        help_text="Leave blank for universal tasks visible to everyone. "
+                  "Select a religion to show this task only to profiles that opted in.",
+    )
     min_age = forms.IntegerField(min_value=1, max_value=18, initial=7)
     max_age = forms.IntegerField(min_value=1, max_value=18, initial=11)
     tags = forms.ModelMultipleChoiceField(
@@ -97,8 +113,8 @@ class PrerequisiteInlineOutgoing(admin.TabularInline):
 
 @admin.register(Task)
 class TaskAdmin(admin.ModelAdmin):
-    list_display = ("slug", "title", "status_badge", "min_age", "max_age", "updated_at")
-    list_filter = ("status", "tags__category", "environments")
+    list_display = ("slug", "title", "status_badge", "religion", "min_age", "max_age", "updated_at")
+    list_filter = ("status", "tags__category", "environments", "religion")
     search_fields = ("slug", "title", "how_to_md")
     filter_horizontal = ("environments", "tags")
     inlines = [PrerequisiteInlineIncoming, PrerequisiteInlineOutgoing]
@@ -112,7 +128,7 @@ class TaskAdmin(admin.ModelAdmin):
     fieldsets = (
         (None, {"fields": ("slug", "title", "status", "review_notes")}),
         ("Content", {"fields": ("how_to_md", "safety_md", "parent_note_md")}),
-        ("Audience", {"fields": ("min_age", "max_age", "environments", "tags")}),
+        ("Audience", {"fields": ("min_age", "max_age", "sex_filter", "religion", "environments", "tags")}),
         ("Metadata", {"fields": ("created_at", "updated_at"), "classes": ("collapse",)}),
     )
 
@@ -202,6 +218,7 @@ class TaskAdmin(admin.ModelAdmin):
     def screen_list_view(self, request):
         status_filter = request.GET.get("status", "pending")
         category_filter = request.GET.get("category", "")
+        religion_filter = request.GET.get("religion", "")
         q = request.GET.get("q", "").strip()
 
         # Quick-action POST (approve / reject / draft a single task)
@@ -231,6 +248,10 @@ class TaskAdmin(admin.ModelAdmin):
             qs = qs.filter(status=status_filter)
         if category_filter:
             qs = qs.filter(tags__category=category_filter).distinct()
+        if religion_filter == "__universal__":
+            qs = qs.filter(religion="")
+        elif religion_filter:
+            qs = qs.filter(religion=religion_filter)
         if q:
             qs = qs.filter(Q(slug__icontains=q) | Q(title__icontains=q))
 
@@ -249,8 +270,10 @@ class TaskAdmin(admin.ModelAdmin):
                 "counts": counts,
                 "status_filter": status_filter,
                 "category_filter": category_filter,
+                "religion_filter": religion_filter,
                 "q": q,
                 "categories": Tag.Category.choices,
+                "religion_choices": RELIGION_CHOICES,
                 "review_statuses": ReviewStatus.choices,
                 "status_colors": STATUS_COLORS,
             },
@@ -282,6 +305,7 @@ class TaskAdmin(admin.ModelAdmin):
                     task.review_notes = d["review_notes"]
                     task.min_age = d["min_age"]
                     task.max_age = d["max_age"]
+                    task.religion = d.get("religion", "")
                     task.status = final_status
                     task.save()
                     task.tags.set(d["tags"])
@@ -297,6 +321,7 @@ class TaskAdmin(admin.ModelAdmin):
                     "slug": task.slug,
                     "title": task.title,
                     "status": task.status,
+                    "religion": task.religion,
                     "min_age": task.min_age,
                     "max_age": task.max_age,
                     "tags": task.tags.all(),
