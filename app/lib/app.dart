@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import 'data/local/hive_setup.dart';
+import 'features/ladder/category_ladder_screen.dart';
 import 'features/ladder/dashboard_screen.dart';
 import 'features/legal/privacy_policy_screen.dart';
 import 'features/legal/terms_screen.dart';
@@ -67,6 +68,12 @@ final _router = GoRouter(
       ),
     ),
     GoRoute(path: "/dashboard", builder: (_, __) => const DashboardScreen()),
+    GoRoute(
+      path: "/category/:cat",
+      builder: (_, state) => CategoryLadderScreen(
+        category: state.pathParameters["cat"]!,
+      ),
+    ),
     GoRoute(
       path: "/task/:slug",
       builder: (_, state) =>
