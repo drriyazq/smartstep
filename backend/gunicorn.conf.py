@@ -6,7 +6,7 @@ Launched by the systemd unit at /etc/systemd/system/smartstep-backend.service
 import multiprocessing
 
 # Bind to localhost only — Nginx proxies /smartstep-admin/ to this.
-bind = "127.0.0.1:8001"
+bind = "127.0.0.1:8007"
 
 # Worker count: 2 × CPU + 1 is the documented default.
 # On a small VPS 2–3 workers is usually plenty.

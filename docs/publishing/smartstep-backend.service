@@ -11,7 +11,7 @@
 #   venv/bin/pip install gunicorn
 #
 # Kill any pre-existing runserver first:
-#   pkill -f "manage.py runserver 0.0.0.0:8001"
+#   pkill -f "manage.py runserver 0.0.0.0:8007"
 #
 # Check status:
 #   sudo systemctl status smartstep-backend
