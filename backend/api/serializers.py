@@ -38,6 +38,7 @@ class TaskSerializer(serializers.ModelSerializer):
             "min_age",
             "max_age",
             "repetitions_required",
+            "religion",
             "environments",
             "tags",
             "prerequisites",

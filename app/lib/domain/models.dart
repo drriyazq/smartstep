@@ -36,6 +36,7 @@ class Task {
     required this.minAge,
     required this.maxAge,
     required this.repetitionsRequired,
+    required this.religion,
     required this.environments,
     required this.tags,
     required this.prerequisites,
@@ -50,6 +51,11 @@ class Task {
   final int minAge;
   final int maxAge;
   final int repetitionsRequired;
+
+  /// Religion id this task is specific to (e.g. "islam"). Empty string
+  /// means universal — shown to everyone regardless of opt-in.
+  final String religion;
+
   final List<String> environments;
   final List<Tag> tags;
   final List<Prerequisite> prerequisites;
@@ -64,6 +70,7 @@ class Task {
         minAge: j["min_age"] as int,
         maxAge: j["max_age"] as int,
         repetitionsRequired: (j["repetitions_required"] as int?) ?? 3,
+        religion: (j["religion"] as String?) ?? "",
         environments:
             (j["environments"] as List? ?? const []).cast<String>(),
         tags: (j["tags"] as List? ?? const [])

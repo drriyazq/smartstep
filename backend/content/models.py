@@ -81,6 +81,17 @@ class Task(models.Model):
         default=3,
         help_text="How many times the child must complete this task before it is marked done.",
     )
+    religion = models.CharField(
+        max_length=24,
+        blank=True,
+        default="",
+        db_index=True,
+        help_text=(
+            "Religion id ('islam', 'christianity', etc) — filters task so only "
+            "profiles that opted in with a matching religion see it. Empty = "
+            "universal (shown to everyone)."
+        ),
+    )
     review_notes = models.TextField(blank=True, help_text="Internal reviewer notes.")
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
