@@ -12,6 +12,7 @@ import 'features/onboarding/child_profile_screen.dart';
 import 'features/onboarding/consent_screen.dart';
 import 'features/onboarding/environment_screen.dart';
 import 'features/onboarding/phone_screen.dart';
+import 'features/onboarding/religion_screen.dart';
 import 'features/profile/profile_screen.dart';
 import 'features/task/custom_task_detail_screen.dart';
 import 'features/task/task_detail_screen.dart';
@@ -56,6 +57,13 @@ final _router = GoRouter(
     GoRoute(
       path: "/onboarding/environment",
       builder: (_, state) => EnvironmentScreen(
+        childId: state.uri.queryParameters["childId"]!,
+        adding: state.uri.queryParameters['adding'] == 'true',
+      ),
+    ),
+    GoRoute(
+      path: "/onboarding/religion",
+      builder: (_, state) => ReligionScreen(
         childId: state.uri.queryParameters["childId"]!,
         adding: state.uri.queryParameters['adding'] == 'true',
       ),

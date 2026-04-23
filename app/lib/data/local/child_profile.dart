@@ -14,6 +14,8 @@ class ChildProfile {
     required this.sex,
     required this.environment,
     this.kind = ProfileKind.child,
+    this.religionInterest = false,
+    this.religion,
   });
 
   final String id;
@@ -23,7 +25,36 @@ class ChildProfile {
   final Environment environment;
   final ProfileKind kind;
 
+  /// Did the user opt in to religion-based practices during onboarding?
+  final bool religionInterest;
+
+  /// Picked religion (Religion.id string) — only meaningful when [religionInterest] is true.
+  final String? religion;
+
   bool get isAdult => kind == ProfileKind.adult;
+
+  ChildProfile copyWith({
+    String? id,
+    String? name,
+    DateTime? dob,
+    Sex? sex,
+    Environment? environment,
+    ProfileKind? kind,
+    bool? religionInterest,
+    String? religion,
+    bool clearReligion = false,
+  }) {
+    return ChildProfile(
+      id: id ?? this.id,
+      name: name ?? this.name,
+      dob: dob ?? this.dob,
+      sex: sex ?? this.sex,
+      environment: environment ?? this.environment,
+      kind: kind ?? this.kind,
+      religionInterest: religionInterest ?? this.religionInterest,
+      religion: clearReligion ? null : (religion ?? this.religion),
+    );
+  }
 
   int ageOn(DateTime ref) {
     var years = ref.year - dob.year;
@@ -77,6 +108,18 @@ class ChildProfileAdapter extends TypeAdapter<ChildProfile> {
         kind = ProfileKind.values[raw];
       }
     }
+    // Backward-compat: religion fields added later. Default to not-opted-in.
+    var religionInterest = false;
+    String? religion;
+    if (r.availableBytes > 0) {
+      religionInterest = r.readBool();
+    }
+    if (r.availableBytes > 0) {
+      final hasReligion = r.readBool();
+      if (hasReligion) {
+        religion = r.readString();
+      }
+    }
     return ChildProfile(
       id: id,
       name: name,
@@ -84,6 +127,8 @@ class ChildProfileAdapter extends TypeAdapter<ChildProfile> {
       sex: sex,
       environment: environment,
       kind: kind,
+      religionInterest: religionInterest,
+      religion: religion,
     );
   }
 
@@ -95,5 +140,8 @@ class ChildProfileAdapter extends TypeAdapter<ChildProfile> {
     w.writeByte(p.sex.index);
     w.writeByte(p.environment.index);
     w.writeByte(p.kind.index);
+    w.writeBool(p.religionInterest);
+    w.writeBool(p.religion != null);
+    if (p.religion != null) w.writeString(p.religion!);
   }
 }

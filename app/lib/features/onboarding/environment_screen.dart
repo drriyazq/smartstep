@@ -63,16 +63,10 @@ class _State extends ConsumerState<EnvironmentScreen> {
     final existing = HiveSetup.childBox.get(widget.childId)!;
     await HiveSetup.childBox.put(
       widget.childId,
-      ChildProfile(
-        id: existing.id,
-        name: existing.name,
-        dob: existing.dob,
-        sex: existing.sex,
-        environment: _env,
-      ),
+      existing.copyWith(environment: _env),
     );
     if (!mounted) return;
     final addingParam = widget.adding ? '&adding=true' : '';
-    context.go("/onboarding/baseline?childId=${widget.childId}$addingParam");
+    context.go("/onboarding/religion?childId=${widget.childId}$addingParam");
   }
 }
