@@ -30,12 +30,14 @@ final _router = GoRouter(
     final onConsent = path == '/consent';
     final onboardingPath =
         path.startsWith("/onboarding") || path == "/phone";
-    final addingChild = state.uri.queryParameters['adding'] == 'true';
+    // Either explicitly adding a new profile, OR mid-onboarding for a specific child
+    final inOnboarding = state.uri.queryParameters['adding'] == 'true' ||
+        state.uri.queryParameters.containsKey('childId');
 
     // No consent yet → only /consent allowed
     if (!consentGiven && !onConsent) return "/consent";
     // Consent given and already has at least one child → skip onboarding
-    if (consentGiven && hasProfile && (onConsent || (onboardingPath && !addingChild))) {
+    if (consentGiven && hasProfile && (onConsent || (onboardingPath && !inOnboarding))) {
       return "/dashboard";
     }
     // Consent given but no child yet → go through onboarding from /phone

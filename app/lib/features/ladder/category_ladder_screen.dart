@@ -85,7 +85,9 @@ class _CategoryLadderScreenState
     final knownSlugs = allTasks.map((t) => t.slug).toSet();
 
     // Filter to this category and sort by minAge ascending
+    // 'faith' is a virtual category: filter by religion field rather than tag
     final categoryTasks = allTasks.where((t) {
+      if (widget.category == 'faith') return t.religion.isNotEmpty;
       final cat =
           t.tags.isEmpty ? 'other' : t.tags.first.category;
       return cat == widget.category;

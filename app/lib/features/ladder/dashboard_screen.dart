@@ -41,6 +41,11 @@ import '../../providers.dart';
           label: 'Social',
           color: const Color(0xFFC62828),
         ),
+      'faith' => (
+          icon: Icons.auto_awesome_outlined,
+          label: 'Faith & Values',
+          color: const Color(0xFF7B1FA2),
+        ),
       _ => (
           icon: Icons.category_outlined,
           label: cat[0].toUpperCase() + cat.substring(1),
@@ -304,6 +309,26 @@ class _CategoryHome extends StatelessWidget {
             ))
         .toList();
 
+    // Faith & Values card — only for profiles that opted into a religion
+    final profile = HiveSetup.childBox.get(childId)!;
+    if (profile.religionInterest) {
+      final faithTotal = tasks.where((t) => t.religion.isNotEmpty).length;
+      if (faithTotal > 0) {
+        final faithDone = allProgress
+            .where((p) {
+              if (!p.satisfies) return false;
+              final t = tasksBySlug[p.taskSlug];
+              return t != null && t.religion.isNotEmpty;
+            })
+            .length;
+        categoryStats.add(_CategoryStat(
+          category: 'faith',
+          done: faithDone,
+          total: faithTotal,
+        ));
+      }
+    }
+
     return ListView(
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
       children: [
@@ -330,7 +355,7 @@ class _CategoryHome extends StatelessWidget {
           physics: const NeverScrollableScrollPhysics(),
           mainAxisSpacing: 12,
           crossAxisSpacing: 12,
-          childAspectRatio: 1.25,
+          childAspectRatio: 1.4,
           children: categoryStats.map((stat) {
             final meta = categoryMeta(stat.category);
             return _CategoryCard(
