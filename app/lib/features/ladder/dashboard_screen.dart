@@ -356,7 +356,7 @@ class _CategoryHome extends StatelessWidget {
             crossAxisCount: 2,
             mainAxisSpacing: 12,
             crossAxisSpacing: 12,
-            mainAxisExtent: 130,
+            mainAxisExtent: 140,
           ),
           children: categoryStats.map((stat) {
             final meta = categoryMeta(stat.category);
