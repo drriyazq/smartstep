@@ -375,3 +375,52 @@ class TaskCompletionEventAdmin(admin.ModelAdmin):
 
     def has_add_permission(self, request):
         return False
+
+    def get_urls(self):
+        urls = super().get_urls()
+        return [path("summary/", self.admin_site.admin_view(self.summary_view), name="telemetry_summary")] + urls
+
+    def changelist_view(self, request, extra_context=None):
+        extra_context = extra_context or {}
+        extra_context["summary_url"] = reverse("admin:telemetry_summary")
+        return super().changelist_view(request, extra_context=extra_context)
+
+    def summary_view(self, request):
+        from django.db.models import Count
+        from django.utils import timezone
+        from datetime import timedelta
+
+        now = timezone.now()
+        top_tasks = (
+            TaskCompletionEvent.objects
+            .values("task__title", "task__slug")
+            .annotate(count=Count("id"))
+            .order_by("-count")[:20]
+        )
+        by_age = (
+            TaskCompletionEvent.objects
+            .values("age_band")
+            .annotate(count=Count("id"))
+            .order_by("-count")
+        )
+        by_env = (
+            TaskCompletionEvent.objects
+            .values("environment")
+            .annotate(count=Count("id"))
+            .order_by("-count")
+        )
+        last_7d = TaskCompletionEvent.objects.filter(created_at__gte=now - timedelta(days=7)).count()
+        last_30d = TaskCompletionEvent.objects.filter(created_at__gte=now - timedelta(days=30)).count()
+        total = TaskCompletionEvent.objects.count()
+
+        context = {
+            **self.admin_site.each_context(request),
+            "title": "Telemetry Summary",
+            "top_tasks": top_tasks,
+            "by_age": by_age,
+            "by_env": by_env,
+            "total": total,
+            "last_7d": last_7d,
+            "last_30d": last_30d,
+        }
+        return render(request, "admin/telemetry_summary.html", context)

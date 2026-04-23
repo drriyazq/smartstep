@@ -165,9 +165,16 @@ class TaskCompletionEvent(models.Model):
     """Anonymous telemetry. Intentionally carries no child identifiers."""
 
     class AgeBand(models.TextChoices):
+        # Child bands
         AGE_7_8 = "7_8", "7–8"
         AGE_9_10 = "9_10", "9–10"
-        AGE_11 = "11", "11"
+        AGE_11 = "11", "11+"
+        # Adult bands
+        AGE_18_25 = "18_25", "18–25"
+        AGE_26_35 = "26_35", "26–35"
+        AGE_36_45 = "36_45", "36–45"
+        AGE_46_55 = "46_55", "46–55"
+        AGE_56_PLUS = "56_plus", "56+"
 
     task = models.ForeignKey(Task, on_delete=models.CASCADE, related_name="completion_events")
     age_band = models.CharField(max_length=8, choices=AgeBand.choices)
