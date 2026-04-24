@@ -92,6 +92,11 @@ class DashboardScreen extends ConsumerWidget {
         ),
         actions: [
           IconButton(
+            icon: const Icon(Icons.emoji_events_outlined),
+            tooltip: "Achievements",
+            onPressed: () => context.push("/achievements"),
+          ),
+          IconButton(
             icon: const Icon(Icons.person_outline),
             tooltip: "Profile",
             onPressed: () => context.push("/profile"),

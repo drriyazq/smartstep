@@ -5,17 +5,28 @@ import 'package:flutter/services.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:share_plus/share_plus.dart';
-
 import '../../data/api/reward_repository.dart';
 import '../../data/api/task_repository.dart';
 import '../../data/local/active_child.dart';
 import '../../data/local/child_profile.dart';
 import '../../data/local/hive_setup.dart';
 import '../../data/local/task_progress.dart';
+import '../../domain/masteries.dart';
+import '../../domain/mastery_evaluator.dart';
 import '../../domain/models.dart';
 import '../../providers.dart';
+import 'certificate_share.dart';
 import 'reward_picker_sheet.dart';
+
+String _categoryEmoji(String cat) => switch (cat) {
+      'financial' => '💰',
+      'household' => '🏠',
+      'digital' => '📱',
+      'navigation' => '🧭',
+      'cognitive' => '🧠',
+      'social' => '💬',
+      _ => '⭐',
+    };
 
 String _sexParam(Sex sex) => switch (sex) {
       Sex.boy => "male",
@@ -418,12 +429,15 @@ class _TaskDetailState extends ConsumerState<TaskDetailScreen> {
             isAdult: child.isAdult,
           )
         : "";
+    final category =
+        task.tags.isEmpty ? 'other' : task.tags.first.category;
+
     await showModalBottomSheet(
       context: context,
       isDismissible: false,
       enableDrag: false,
       isScrollControlled: true,
-      builder: (_) => _CelebrationSheet(
+      builder: (sheetCtx) => _CelebrationSheet(
         childName: child.name,
         taskTitle: task.title,
         reward: reward,
@@ -432,14 +446,54 @@ class _TaskDetailState extends ConsumerState<TaskDetailScreen> {
         totalRequired: task.repetitionsRequired,
         isFullyDone: isFullyDone,
         isAdult: child.isAdult,
+        onShareCertificate: () {
+          Navigator.of(sheetCtx).pop();
+          Navigator.of(context).push(MaterialPageRoute(
+            builder: (_) => SkillCertificatePreview(
+              childName: child.name,
+              childAge: child.ageOn(DateTime.now()),
+              taskTitle: task.title,
+              categorySlug: category,
+              categoryEmoji: _categoryEmoji(category),
+              completedAt: DateTime.now(),
+            ),
+          ));
+        },
       ),
     );
 
     if (!mounted) return;
+
+    // Check for newly earned masteries after this completion.
     if (isFullyDone) {
-      // When fully done we navigate back; no undo SnackBar since the user
-      // now sees the dashboard. The Skill Mastered card on return to detail
-      // offers a Reset option instead.
+      final allProgress = HiveSetup.progressBox.values
+          .where((p) => p.childId == childId)
+          .toList();
+      final progressBySlug = {
+        for (final p in allProgress) p.taskSlug: p,
+      };
+      final newMasteries = await claimNewlyEarnedMasteries(
+        childId: childId,
+        isAdult: child.isAdult,
+        progressBySlug: progressBySlug,
+      );
+      if (mounted) {
+        for (final m in newMasteries) {
+          await Navigator.of(context).push(MaterialPageRoute(
+            builder: (_) => MasteryCertificatePreview(
+              childName: child.name,
+              childAge: child.ageOn(DateTime.now()),
+              mastery: m,
+              earnedAt: DateTime.now(),
+            ),
+          ));
+          if (!mounted) break;
+        }
+      }
+    }
+
+    if (!mounted) return;
+    if (isFullyDone) {
       context.pop();
     } else {
       _showUndoSnack(
@@ -1106,6 +1160,7 @@ class _CelebrationSheet extends StatelessWidget {
     required this.practiceNumber,
     required this.totalRequired,
     required this.isFullyDone,
+    required this.onShareCertificate,
     this.isAdult = false,
   });
   final String childName;
@@ -1116,6 +1171,7 @@ class _CelebrationSheet extends StatelessWidget {
   final int totalRequired;
   final bool isFullyDone;
   final bool isAdult;
+  final VoidCallback onShareCertificate;
 
   @override
   Widget build(BuildContext context) {
@@ -1202,9 +1258,9 @@ class _CelebrationSheet extends StatelessWidget {
                 SizedBox(
                   width: double.infinity,
                   child: FilledButton.icon(
-                    icon: const Icon(Icons.share_outlined),
-                    label: const Text("Share this win"),
-                    onPressed: () => Share.share(shareMessage),
+                    icon: const Icon(Icons.card_membership_outlined),
+                    label: const Text("Share Certificate"),
+                    onPressed: onShareCertificate,
                   ),
                 ),
               ],

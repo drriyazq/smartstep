@@ -20,6 +20,14 @@ BLOCK = """    location = /smartstep/privacy/ {
         default_type text/html;
     }
 
+    location = /smartstep {
+        return 302 https://play.google.com/store/apps/details?id=com.areafair.smartstep&referrer=utm_source%3Dcert_share%26utm_medium%3Dwhatsapp;
+    }
+
+    location = /smartstep/ {
+        return 302 https://play.google.com/store/apps/details?id=com.areafair.smartstep&referrer=utm_source%3Dcert_share%26utm_medium%3Dwhatsapp;
+    }
+
 """
 
 ANCHOR = "    location /smartstep-admin/"

@@ -12,6 +12,7 @@ import 'features/onboarding/child_profile_screen.dart';
 import 'features/onboarding/consent_screen.dart';
 import 'features/onboarding/environment_screen.dart';
 import 'features/onboarding/signin_screen.dart';
+import 'features/profile/achievements_screen.dart';
 import 'features/profile/profile_screen.dart';
 import 'features/task/custom_task_detail_screen.dart';
 import 'features/task/task_detail_screen.dart';
@@ -82,6 +83,7 @@ final _router = GoRouter(
           TaskDetailScreen(taskSlug: state.pathParameters["slug"]!),
     ),
     GoRoute(path: "/profile", builder: (_, __) => const ProfileScreen()),
+    GoRoute(path: "/achievements", builder: (_, __) => const AchievementsScreen()),
     GoRoute(
       path: "/custom-task/:id",
       builder: (_, state) =>
