@@ -62,6 +62,11 @@ DJANGO_SETTINGS_MODULE=smartstep.settings.dev venv/bin/python manage.py seed_adu
 
 # Rewards catalog (clears and reseeds all reward items)
 DJANGO_SETTINGS_MODULE=smartstep.settings.dev venv/bin/python manage.py seed_rewards
+
+# Gap-fill tasks (fitness, digital creation, eco, healthcare self-management)
+# Required for the Active Body / Young Digital Creator / Eco-Conscious Kid /
+# Handles Their Own Healthcare masteries to work.
+DJANGO_SETTINGS_MODULE=smartstep.settings.dev venv/bin/python manage.py seed_gap_tasks
 ```
 
 Religion seed commands (`seed_islam_tasks*`, `seed_christianity_tasks`, `seed_hinduism_tasks`) still exist but the feature was removed from the app — do not run them unless you're explicitly re-enabling religion content.
@@ -177,7 +182,7 @@ When changing anything that touches data handling, update the privacy policy con
 
 **Custom admin views** — wired via `TaskAdmin.get_urls()` in `content/admin.py`. The screening form uses `TaskScreenForm` (plain `forms.Form`, not `ModelForm`) and honours a `save_action` POST param to override status on save.
 
-**Current catalog state:** 484 universal child tasks (ages 5–16) + 72 adult tasks (`min_age ≥ 17`). Every age year 5–16 has dedicated content in every category. DAG fully chained across the 6 universal categories. The `religion` field on `Task` is legacy — there are no religion tasks in the DB anymore.
+**Current catalog state:** 509 universal child tasks (484 from refine_*_ladder commands + 25 from seed_gap_tasks) + 72 adult tasks. Gap-fill tasks cover fitness, digital creation, eco-conscious habits, and healthcare self-management — they exist to support the corresponding mastery certificates. The `religion` field on `Task` is legacy — there are no religion tasks in the DB anymore.
 
 **Telemetry `AgeBand`** — has both child bands (`7_8`, `9_10`, `11`) and adult bands (`18_25`, `26_35`, `36_45`, `46_55`, `56_plus`). If you add a new adult age cohort, add the band here too or the POST will silently 400.
 
@@ -185,7 +190,7 @@ When changing anything that touches data handling, update the privacy policy con
 
 ### Flutter app (`app/`)
 
-**Stack:** Riverpod · go_router · Hive (encrypted for PII) · Dio · flutter_markdown · share_plus · flutter_secure_storage
+**Stack:** Riverpod · go_router · Hive (encrypted for PII) · Dio · flutter_markdown · share_plus · flutter_secure_storage · firebase_auth + google_sign_in · qr_flutter · path_provider
 
 **Key files beyond what's obvious:**
 
@@ -297,11 +302,38 @@ Age-gating at the start of the ladder + age-unlocked-via-prereqs appearing with 
 
 **Routes** (in `app.dart`):
 - `/consent` → `/signin` → `/onboarding/child` → `/onboarding/environment` → `/onboarding/baseline` → `/dashboard`
-- `/dashboard`, `/profile`, `/task/:slug`, `/custom-task/:id`
+- `/dashboard`, `/profile`, `/achievements`, `/task/:slug`, `/custom-task/:id`
 - `/category/:cat`
 - `/legal/privacy`, `/legal/terms` (always accessible)
 
 `ChildProfile` still has `religionInterest` and `religion` fields on the Hive adapter (backward-compat with older installs) but they're no longer used. Do not remove the fields from the TypeAdapter — it would break Hive reads for anyone with existing data.
+
+---
+
+### Certificates & mastery milestones (viral share loop)
+
+Two shareable certificate types, both generated client-side as PNG from Flutter widgets via `RepaintBoundary` → `ui.toImage` → `Share.shareXFiles`. All child PII stays on-device — caption contains only first name + the short URL `areafair.in/smartstep` (nginx 302 → Play Store with UTM tracking).
+
+- **Skill certificate** — 1080×1080, shown when any single task is fully mastered. Replaces the old text-only "Share this win" button.
+- **Mastery certificate** — 1080×1350 gold-framed, auto-triggered when a child completes ALL prerequisite tasks for a mastery bundle (e.g. "Metro & Transit Solo Traveler" needs 6 specific tasks).
+
+**Key files:**
+- `lib/domain/masteries.dart` — 29 mastery definitions (26 child + 3 adult). Each has `id`, `title`, `celebration`, `category`, `emoji`, `earnedAtAge`, `requiredTaskSlugs`, `isAdult`. This is the source of truth.
+- `lib/domain/mastery_evaluator.dart` — pure eval functions + sessionBox storage. `claimNewlyEarnedMasteries()` runs after each task completion and returns masteries just-earned (not previously earned). `earnedAt()` / `isAlreadyEarned()` for the Achievements screen.
+- `lib/features/task/certificate_card.dart` — two widget designs. `categoryColor(category)` maps slug to brand color. QR code via `qr_flutter`.
+- `lib/features/task/certificate_share.dart` — `SkillCertificatePreview` + `MasteryCertificatePreview` screens with capture & share.
+- `lib/features/profile/achievements_screen.dart` — lists earned/in-progress/locked masteries with per-mastery share button.
+
+**Earned masteries are stored in `sessionBox`** under keys like `mastery::{childId}::{masteryId}` (value: ISO earned-timestamp). Uses existing sessionBox rather than a new Hive adapter (simpler — no TypeId needed, no migration on upgrade).
+
+**Trigger flow in `task_detail_screen.dart → _handleCompletion`:**
+1. Task completed → progress saved → telemetry POST fires.
+2. Celebration sheet shown with **Share Certificate** button → opens `SkillCertificatePreview`.
+3. After sheet dismisses, `claimNewlyEarnedMasteries()` runs against all progress; any new mastery pushes a `MasteryCertificatePreview` in sequence.
+
+**Adding a new mastery:** edit `masteries.dart`, add a `Mastery(...)` entry with valid `requiredTaskSlugs`. No backend change needed. Task slugs must exist in the live catalog (verify before shipping or the mastery will never trigger).
+
+**Nginx `/smartstep` short URL** — configured by `docs/publishing/patch_nginx.py`. Two 302 redirects (`/smartstep` and `/smartstep/`) both go to Play Store with UTM params `utm_source=cert_share&utm_medium=whatsapp`. Used on every certificate QR code + caption.
 
 ---
 
