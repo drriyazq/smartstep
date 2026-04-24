@@ -11,7 +11,7 @@ import 'features/onboarding/baseline_screen.dart';
 import 'features/onboarding/child_profile_screen.dart';
 import 'features/onboarding/consent_screen.dart';
 import 'features/onboarding/environment_screen.dart';
-import 'features/onboarding/phone_screen.dart';
+import 'features/onboarding/signin_screen.dart';
 import 'features/profile/profile_screen.dart';
 import 'features/task/custom_task_detail_screen.dart';
 import 'features/task/task_detail_screen.dart';
@@ -28,7 +28,7 @@ final _router = GoRouter(
     final hasProfile = HiveSetup.childBox.isNotEmpty;
     final onConsent = path == '/consent';
     final onboardingPath =
-        path.startsWith("/onboarding") || path == "/phone";
+        path.startsWith("/onboarding") || path == "/signin";
     // Either explicitly adding a new profile, OR mid-onboarding for a specific child
     final inOnboarding = state.uri.queryParameters['adding'] == 'true' ||
         state.uri.queryParameters.containsKey('childId');
@@ -39,16 +39,16 @@ final _router = GoRouter(
     if (consentGiven && hasProfile && (onConsent || (onboardingPath && !inOnboarding))) {
       return "/dashboard";
     }
-    // Consent given but no child yet → go through onboarding from /phone
-    if (consentGiven && !hasProfile && onConsent) return "/phone";
-    if (consentGiven && !hasProfile && !onboardingPath) return "/phone";
+    // Consent given but no child yet → go through onboarding from /signin
+    if (consentGiven && !hasProfile && onConsent) return "/signin";
+    if (consentGiven && !hasProfile && !onboardingPath) return "/signin";
     return null;
   },
   routes: [
     GoRoute(path: "/consent", builder: (_, __) => const ConsentScreen()),
     GoRoute(path: "/legal/privacy", builder: (_, __) => const PrivacyPolicyScreen()),
     GoRoute(path: "/legal/terms", builder: (_, __) => const TermsScreen()),
-    GoRoute(path: "/phone", builder: (_, __) => const PhoneScreen()),
+    GoRoute(path: "/signin", builder: (_, __) => const SignInScreen()),
     GoRoute(
       path: "/onboarding/child",
       builder: (_, state) => ChildProfileScreen(

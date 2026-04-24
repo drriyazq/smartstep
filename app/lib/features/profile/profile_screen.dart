@@ -314,7 +314,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     await HiveSetup.rewardUsageBox.clear();
     await HiveSetup.customRewardBox.clear();
     await HiveSetup.customTaskBox.clear();
-    if (mounted) context.go('/phone');
+    if (mounted) context.go('/signin');
   }
 
   Future<void> _confirmResetProgress() async {

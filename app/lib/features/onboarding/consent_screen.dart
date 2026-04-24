@@ -30,7 +30,7 @@ class _ConsentScreenState extends State<ConsentScreen> {
       DateTime.now().toIso8601String(),
     );
     if (!mounted) return;
-    context.go('/phone');
+    context.go('/signin');
   }
 
   @override

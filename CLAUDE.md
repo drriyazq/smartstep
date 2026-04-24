@@ -84,7 +84,7 @@ flutter test           # runs app/test/ladder_test.dart
 
 `flutter clean` is **only** needed when Hive TypeAdapters change (new `typeId`, new box, or changed field layout). For pure `.dart` code changes, just `flutter run`.
 
-OTP is stubbed in dev — any phone number + `000000` logs you in.
+Sign-in uses Google Sign-In via Firebase Auth. The Firebase ID token is exchanged for a Django JWT at `/api/v1/auth/firebase/`. The backend endpoint works for any Firebase provider (Google/Apple/phone/etc).
 
 Sensitive Hive boxes are encrypted at rest (AES-256, key in Android Keystore). After changing the encryption layer or `ProfileKind`-level schema, existing installs need reinstall or **Settings → Apps → SmartStep → Clear storage** — the old data won't decrypt.
 
