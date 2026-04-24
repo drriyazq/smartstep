@@ -67,6 +67,6 @@ class _State extends ConsumerState<EnvironmentScreen> {
     );
     if (!mounted) return;
     final addingParam = widget.adding ? '&adding=true' : '';
-    context.go("/onboarding/religion?childId=${widget.childId}$addingParam");
+    context.go("/onboarding/baseline?childId=${widget.childId}$addingParam");
   }
 }

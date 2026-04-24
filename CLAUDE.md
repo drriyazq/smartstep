@@ -10,7 +10,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 cd /home/drriyazq/smartstep/backend
 
 # Dev server
-DJANGO_SETTINGS_MODULE=smartstep.settings.dev venv/bin/python manage.py runserver 0.0.0.0:8001
+DJANGO_SETTINGS_MODULE=smartstep.settings.dev venv/bin/python manage.py runserver 0.0.0.0:8007
 
 # Migrations
 DJANGO_SETTINGS_MODULE=smartstep.settings.dev venv/bin/python manage.py makemigrations
@@ -59,6 +59,15 @@ DJANGO_SETTINGS_MODULE=smartstep.settings.dev venv/bin/python manage.py refine_h
 
 # Adult catalog (ages 17-99)
 DJANGO_SETTINGS_MODULE=smartstep.settings.dev venv/bin/python manage.py seed_adult_catalog
+
+# Religion-based tasks (optional — only serve if profile.religionInterest == true)
+DJANGO_SETTINGS_MODULE=smartstep.settings.dev venv/bin/python manage.py seed_islam_tasks
+DJANGO_SETTINGS_MODULE=smartstep.settings.dev venv/bin/python manage.py seed_islam_tasks_2
+DJANGO_SETTINGS_MODULE=smartstep.settings.dev venv/bin/python manage.py seed_christianity_tasks
+DJANGO_SETTINGS_MODULE=smartstep.settings.dev venv/bin/python manage.py seed_hinduism_tasks
+
+# Rewards catalog (clears and reseeds all reward items)
+DJANGO_SETTINGS_MODULE=smartstep.settings.dev venv/bin/python manage.py seed_rewards
 ```
 
 To rebuild from scratch: flush the Task/Tag tables, then run the commands above in order. If you need to rewrite catalog content, **edit the relevant `refine_*_ladder.py` command and re-run it** — don't hand-patch the DB.
@@ -92,17 +101,22 @@ docker compose up --build
 
 ## Deployment (Production — VPS 187.127.134.77)
 
-Backend is live on port 8001, proxied by Nginx at `https://areafair.in/smartstep-admin/`.
+Backend is live on port 8007, proxied by Nginx at `https://areafair.in/smartstep-admin/`.
 
 ```bash
-# Restart if it dies
+# Restart if it dies (runserver fallback — Gunicorn systemd service preferred)
 cd /home/drriyazq/smartstep/backend
-DJANGO_SETTINGS_MODULE=smartstep.settings.dev nohup venv/bin/python manage.py runserver 0.0.0.0:8001 &
+DJANGO_SETTINGS_MODULE=smartstep.settings.dev nohup venv/bin/python manage.py runserver 0.0.0.0:8007 &
+
+# Gunicorn via systemd (once installed)
+sudo systemctl start smartstep-backend
+sudo journalctl -u smartstep-backend -f
 ```
 
-**Admin:** `https://areafair.in/smartstep-admin/`
-**Task screening:** `https://areafair.in/smartstep-admin/content/task/screen/`
-**DAG graph:** `https://areafair.in/smartstep-admin/content/task/graph/`
+**Admin:** `http://187.127.134.77:8007/admin/`
+**Task list:** `http://187.127.134.77:8007/admin/content/task/`
+**Task screening:** `http://187.127.134.77:8007/admin/content/task/screen/`
+**DAG graph:** `http://187.127.134.77:8007/admin/content/task/graph/`
 
 After any backend change, always `git push origin main` — the Windows development machine runs `sync.bat` which pulls from GitHub, not from the VPS. The Flutter build happens on that Windows machine.
 
@@ -165,7 +179,7 @@ When changing anything that touches data handling, update the privacy policy con
 
 **Custom admin views** — wired via `TaskAdmin.get_urls()` in `content/admin.py`. The screening form uses `TaskScreenForm` (plain `forms.Form`, not `ModelForm`) and honours a `save_action` POST param to override status on save.
 
-**Current catalog state:** ~484 approved tasks across 6 laddered categories (cognitive 84, social 72, household 67, digital 64, navigation 63, financial 62, plus 72 adult tasks with `min_age ≥ 17` spread across the 6 categories). Every age year 5–16 has dedicated content in every category. DAG is fully chained — ~400+ prerequisite edges.
+**Current catalog state:** 738 approved tasks — 484 universal child tasks (ages 5–16), 72 adult tasks (`min_age ≥ 17`), and 254 religion-specific tasks (Islam 85, Christianity 87, Hinduism 82). Tasks with a non-empty `religion` field are filtered out unless the profile's `religionInterest == true` and `religion` matches. Every age year 5–16 has dedicated content in every category. DAG fully chained across the 6 universal categories.
 
 ---
 
@@ -281,9 +295,12 @@ Age-gating at the start of the ladder + age-unlocked-via-prereqs appearing with 
 
 **Profile kind adapts UI throughout** — AppBar titles, "For Parents" vs "Why This Matters" note card, celebration sheet copy, share message tone, and onboarding prompts all branch on `child.isAdult`.
 
+**Religion opt-in** — `ChildProfile` has `religionInterest: bool` and `religion: String` (e.g. `'islam'`). The `/onboarding/religion` screen sits between environment and baseline during onboarding, and is also editable from `profile_screen.dart` via `_editReligion()`. The catalog provider filters religion tasks based on these flags. The `'faith'` category is a **virtual category** — no tasks are tagged with it; the dashboard stat and category ladder screen simply filter `t.religion.isNotEmpty` from the universal catalog.
+
 **Routes** (in `app.dart`):
-- `/consent` → `/phone` → `/onboarding/child` → `/onboarding/environment` → `/onboarding/baseline` → `/dashboard`
+- `/consent` → `/phone` → `/onboarding/child` → `/onboarding/environment` → `/onboarding/religion` → `/onboarding/baseline` → `/dashboard`
 - `/dashboard`, `/profile`, `/task/:slug`, `/custom-task/:id`
+- `/category/:cat` (including virtual `faith` category)
 - `/legal/privacy`, `/legal/terms` (always accessible)
 
 ---
@@ -291,7 +308,7 @@ Age-gating at the start of the ladder + age-unlocked-via-prereqs appearing with 
 ## What is NOT yet done
 
 - Push notifications: `ScheduledNotification` model exists, no send mechanism yet
-- Gunicorn + systemd service for production backend (currently `manage.py runserver`)
-- Hive migration for existing installs when encryption/schema changes — current policy is "uninstall + reinstall" (acceptable pre-production)
-- Public-URL hosted privacy policy (in-app version exists; need a copy at `areafair.in/smartstep/privacy` for the Play Console submission)
-- Play Console submission: Data Safety declaration, target-audience content rating questionnaire
+- Gunicorn systemd service not yet active on VPS — service file at `docs/publishing/smartstep-backend.service`, install with `sudo cp … /etc/systemd/system/ && sudo systemctl enable --now smartstep-backend`
+- Religion tasks for Buddhism and Sikhism not yet seeded
+- Hive migration for existing installs when encryption/schema changes — current policy is "uninstall + reinstall"
+- Play Console: privacy/terms pages must be live at `areafair.in/smartstep/privacy/` and `/terms/` before submission

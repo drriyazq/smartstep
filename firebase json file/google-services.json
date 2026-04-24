@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "1011404673425",
+    "project_id": "smartsteps-e4c94",
+    "storage_bucket": "smartsteps-e4c94.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1011404673425:android:dbe74c8994b090bef24a30",
+        "android_client_info": {
+          "package_name": "com.areafair.smartstep"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyB6ulMySoFbR7DhPCUea73u9EZvFZBEyNI"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

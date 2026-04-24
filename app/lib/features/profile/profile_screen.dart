@@ -173,114 +173,6 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     if (mounted) setState(() {});
   }
 
-  static const _religions = [
-    ('christianity', 'Christianity', '✝️'),
-    ('islam',        'Islam',        '☪️'),
-    ('hinduism',     'Hinduism',     '🕉️'),
-    ('buddhism',     'Buddhism',     '☸️'),
-    ('sikhism',      'Sikhism',      '🪯'),
-  ];
-
-  Future<void> _editReligion() async {
-    var optedIn = _child.religionInterest;
-    var selectedId = _child.religion;
-
-    final confirmed = await showModalBottomSheet<bool>(
-      context: context,
-      isScrollControlled: true,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (_) => StatefulBuilder(
-        builder: (ctx, setDlg) => SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(20, 20, 20, 16),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Text(
-                  "Faith & Values",
-                  style: Theme.of(ctx).textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.w700,
-                      ),
-                ),
-                const SizedBox(height: 6),
-                Text(
-                  "Include religion-based tasks alongside the regular ones.",
-                  style: TextStyle(fontSize: 13, color: Colors.grey.shade600),
-                ),
-                const SizedBox(height: 16),
-                Row(
-                  children: [
-                    Expanded(
-                      child: _ChoiceBtn(
-                        label: "Yes, include",
-                        selected: optedIn,
-                        onTap: () => setDlg(() => optedIn = true),
-                      ),
-                    ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: _ChoiceBtn(
-                        label: "No thanks",
-                        selected: !optedIn,
-                        onTap: () => setDlg(() {
-                          optedIn = false;
-                          selectedId = null;
-                        }),
-                      ),
-                    ),
-                  ],
-                ),
-                if (optedIn) ...[
-                  const SizedBox(height: 16),
-                  Text(
-                    "Select your tradition",
-                    style: Theme.of(ctx).textTheme.titleSmall?.copyWith(
-                          fontWeight: FontWeight.w700,
-                        ),
-                  ),
-                  const SizedBox(height: 8),
-                  for (final (id, label, emoji) in _religions) ...[
-                    _ReligionChoice(
-                      id: id,
-                      label: label,
-                      emoji: emoji,
-                      selected: selectedId == id,
-                      onTap: () => setDlg(() => selectedId = id),
-                    ),
-                    const SizedBox(height: 6),
-                  ],
-                ],
-                const SizedBox(height: 16),
-                FilledButton(
-                  onPressed:
-                      (!optedIn || selectedId != null) ? () => Navigator.pop(ctx, true) : null,
-                  child: const Text("Save"),
-                ),
-                TextButton(
-                  onPressed: () => Navigator.pop(ctx, false),
-                  child: const Text("Cancel"),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-
-    if (confirmed != true) return;
-    final updated = _child.copyWith(
-      religionInterest: optedIn,
-      religion: optedIn ? selectedId : null,
-      clearReligion: !optedIn,
-    );
-    await HiveSetup.childBox.put(_child.id, updated);
-    ref.invalidate(catalogProvider);
-    if (mounted) setState(() {});
-  }
-
   void _shareApp() {
     Share.share(
       "Most kids finish school knowing complex maths but can't make a phone call, "
@@ -819,25 +711,6 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
             ],
           ),
           const SizedBox(height: 10),
-          OutlinedButton.icon(
-            icon: const Icon(Icons.auto_awesome_outlined, size: 16),
-            label: Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text("Faith & Values"),
-                  Text(
-                    child.religionInterest
-                        ? "Opted in · ${_religionLabel(child.religion)}"
-                        : "Not opted in",
-                    style: TextStyle(fontSize: 11, color: Colors.grey.shade600),
-                  ),
-                ],
-              ),
-            ),
-            onPressed: _editReligion,
-          ),
-          const SizedBox(height: 10),
           _CategoryPreferencesTile(
             enabledCategories: _loadEnabledCategories(),
             allCategories: _allCategories,
@@ -1179,18 +1052,6 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     );
   }
 
-  String _religionLabel(String? id) {
-    if (id == null) return '';
-    return switch (id) {
-      'christianity' => 'Christianity',
-      'islam'        => 'Islam',
-      'hinduism'     => 'Hinduism',
-      'buddhism'     => 'Buddhism',
-      'sikhism'      => 'Sikhism',
-      _              => id,
-    };
-  }
-
   String _envLabel(Environment e) => switch (e) {
         Environment.urban => "Urban",
         Environment.suburban => "Suburban",
@@ -1491,84 +1352,3 @@ class _DataRow extends StatelessWidget {
   }
 }
 
-class _ChoiceBtn extends StatelessWidget {
-  const _ChoiceBtn({required this.label, required this.selected, required this.onTap});
-  final String label;
-  final bool selected;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    return Material(
-      color: selected ? scheme.primary : Colors.grey.shade100,
-      borderRadius: BorderRadius.circular(12),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(12),
-        onTap: onTap,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 14),
-          child: Text(
-            label,
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              color: selected ? Colors.white : Colors.black87,
-              fontWeight: FontWeight.w600,
-              fontSize: 13,
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _ReligionChoice extends StatelessWidget {
-  const _ReligionChoice({
-    required this.id,
-    required this.label,
-    required this.emoji,
-    required this.selected,
-    required this.onTap,
-  });
-  final String id;
-  final String label;
-  final String emoji;
-  final bool selected;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    return Material(
-      color: selected ? scheme.primary.withOpacity(0.08) : Colors.white,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(10),
-        side: BorderSide(
-          color: selected ? scheme.primary : Colors.grey.shade200,
-          width: selected ? 1.6 : 1,
-        ),
-      ),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(10),
-        onTap: onTap,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 14),
-          child: Row(
-            children: [
-              Text(emoji, style: const TextStyle(fontSize: 20)),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Text(
-                  label,
-                  style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
-                ),
-              ),
-              if (selected) Icon(Icons.check_circle, color: scheme.primary, size: 20),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
