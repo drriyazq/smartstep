@@ -60,15 +60,11 @@ DJANGO_SETTINGS_MODULE=smartstep.settings.dev venv/bin/python manage.py refine_h
 # Adult catalog (ages 17-99)
 DJANGO_SETTINGS_MODULE=smartstep.settings.dev venv/bin/python manage.py seed_adult_catalog
 
-# Religion-based tasks (optional — only serve if profile.religionInterest == true)
-DJANGO_SETTINGS_MODULE=smartstep.settings.dev venv/bin/python manage.py seed_islam_tasks
-DJANGO_SETTINGS_MODULE=smartstep.settings.dev venv/bin/python manage.py seed_islam_tasks_2
-DJANGO_SETTINGS_MODULE=smartstep.settings.dev venv/bin/python manage.py seed_christianity_tasks
-DJANGO_SETTINGS_MODULE=smartstep.settings.dev venv/bin/python manage.py seed_hinduism_tasks
-
 # Rewards catalog (clears and reseeds all reward items)
 DJANGO_SETTINGS_MODULE=smartstep.settings.dev venv/bin/python manage.py seed_rewards
 ```
+
+Religion seed commands (`seed_islam_tasks*`, `seed_christianity_tasks`, `seed_hinduism_tasks`) still exist but the feature was removed from the app — do not run them unless you're explicitly re-enabling religion content.
 
 To rebuild from scratch: flush the Task/Tag tables, then run the commands above in order. If you need to rewrite catalog content, **edit the relevant `refine_*_ladder.py` command and re-run it** — don't hand-patch the DB.
 
@@ -84,7 +80,9 @@ flutter test           # runs app/test/ladder_test.dart
 
 `flutter clean` is **only** needed when Hive TypeAdapters change (new `typeId`, new box, or changed field layout). For pure `.dart` code changes, just `flutter run`.
 
-Sign-in uses Google Sign-In via Firebase Auth. The Firebase ID token is exchanged for a Django JWT at `/api/v1/auth/firebase/`. The backend endpoint works for any Firebase provider (Google/Apple/phone/etc).
+Sign-in uses Google Sign-In via Firebase Auth. The Firebase ID token is exchanged for a Django JWT at `/api/v1/auth/firebase/`. The backend endpoint works for any Firebase provider — it just verifies the token and creates a `firebase_{uid}` Django user.
+
+**Critical for Play Store installs:** Firebase needs BOTH SHA-1 fingerprints registered — the upload keystore SHA-1 (for `flutter install --release` builds) AND the Play App Signing SHA-1 (for Play Store installs, found in Play Console → App integrity → App signing). Missing either causes `ApiException: 10` on sign-in.
 
 Sensitive Hive boxes are encrypted at rest (AES-256, key in Android Keystore). After changing the encryption layer or `ProfileKind`-level schema, existing installs need reinstall or **Settings → Apps → SmartStep → Clear storage** — the old data won't decrypt.
 
@@ -179,7 +177,9 @@ When changing anything that touches data handling, update the privacy policy con
 
 **Custom admin views** — wired via `TaskAdmin.get_urls()` in `content/admin.py`. The screening form uses `TaskScreenForm` (plain `forms.Form`, not `ModelForm`) and honours a `save_action` POST param to override status on save.
 
-**Current catalog state:** 738 approved tasks — 484 universal child tasks (ages 5–16), 72 adult tasks (`min_age ≥ 17`), and 254 religion-specific tasks (Islam 85, Christianity 87, Hinduism 82). Tasks with a non-empty `religion` field are filtered out unless the profile's `religionInterest == true` and `religion` matches. Every age year 5–16 has dedicated content in every category. DAG fully chained across the 6 universal categories.
+**Current catalog state:** 484 universal child tasks (ages 5–16) + 72 adult tasks (`min_age ≥ 17`). Every age year 5–16 has dedicated content in every category. DAG fully chained across the 6 universal categories. The `religion` field on `Task` is legacy — there are no religion tasks in the DB anymore.
+
+**Telemetry `AgeBand`** — has both child bands (`7_8`, `9_10`, `11`) and adult bands (`18_25`, `26_35`, `36_45`, `46_55`, `56_plus`). If you add a new adult age cohort, add the band here too or the POST will silently 400.
 
 ---
 
@@ -209,7 +209,7 @@ lib/
   features/
     onboarding/
       consent_screen.dart               # first screen: DPDP consent + policy checkboxes
-      phone_screen.dart                 # OTP via Firebase Auth
+      signin_screen.dart                # Google Sign-In → Firebase Auth → Django JWT
       child_profile_screen.dart         # kind toggle + DOB + sex + review dialog
       environment_screen.dart
       baseline_screen.dart              # dispatches to child or adult questions
@@ -246,8 +246,8 @@ The encryption key is a 256-bit AES key persisted in `flutter_secure_storage` (A
 **Router redirect guard (`app.dart`):**
 1. Paths starting with `/legal/` are always allowed.
 2. No consent → must be on `/consent`.
-3. Consent + at least one profile → onboarding URLs redirect to `/dashboard`.
-4. Consent + no profile → redirect to `/phone`.
+3. Consent + at least one profile → onboarding URLs redirect to `/dashboard`, UNLESS the URL carries `?adding=true` or `?childId=…` (mid-onboarding for a new/specific profile).
+4. Consent + no profile → redirect to `/signin`.
 
 `progressVersionProvider` (StateProvider<int>) — increment it after any Hive write to trigger dashboard rebuild. Widgets that need reactivity should `ref.watch(progressVersionProvider)`.
 
@@ -295,13 +295,13 @@ Age-gating at the start of the ladder + age-unlocked-via-prereqs appearing with 
 
 **Profile kind adapts UI throughout** — AppBar titles, "For Parents" vs "Why This Matters" note card, celebration sheet copy, share message tone, and onboarding prompts all branch on `child.isAdult`.
 
-**Religion opt-in** — `ChildProfile` has `religionInterest: bool` and `religion: String` (e.g. `'islam'`). The `/onboarding/religion` screen sits between environment and baseline during onboarding, and is also editable from `profile_screen.dart` via `_editReligion()`. The catalog provider filters religion tasks based on these flags. The `'faith'` category is a **virtual category** — no tasks are tagged with it; the dashboard stat and category ladder screen simply filter `t.religion.isNotEmpty` from the universal catalog.
-
 **Routes** (in `app.dart`):
-- `/consent` → `/phone` → `/onboarding/child` → `/onboarding/environment` → `/onboarding/religion` → `/onboarding/baseline` → `/dashboard`
+- `/consent` → `/signin` → `/onboarding/child` → `/onboarding/environment` → `/onboarding/baseline` → `/dashboard`
 - `/dashboard`, `/profile`, `/task/:slug`, `/custom-task/:id`
-- `/category/:cat` (including virtual `faith` category)
+- `/category/:cat`
 - `/legal/privacy`, `/legal/terms` (always accessible)
+
+`ChildProfile` still has `religionInterest` and `religion` fields on the Hive adapter (backward-compat with older installs) but they're no longer used. Do not remove the fields from the TypeAdapter — it would break Hive reads for anyone with existing data.
 
 ---
 
@@ -309,6 +309,5 @@ Age-gating at the start of the ladder + age-unlocked-via-prereqs appearing with 
 
 - Push notifications: `ScheduledNotification` model exists, no send mechanism yet
 - Gunicorn systemd service not yet active on VPS — service file at `docs/publishing/smartstep-backend.service`, install with `sudo cp … /etc/systemd/system/ && sudo systemctl enable --now smartstep-backend`
-- Religion tasks for Buddhism and Sikhism not yet seeded
 - Hive migration for existing installs when encryption/schema changes — current policy is "uninstall + reinstall"
-- Play Console: privacy/terms pages must be live at `areafair.in/smartstep/privacy/` and `/terms/` before submission
+- Play Console: 10 App-content declarations still in progress — Internal Testing release is live, Closed Testing needs 14-day opt-in with 20+ testers before Production
