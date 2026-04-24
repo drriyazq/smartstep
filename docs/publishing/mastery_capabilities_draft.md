@@ -9,7 +9,7 @@
 - ❌ **Drop** the whole mastery
 - ➕ **Add** a new one I missed
 
-**Total drafted:** 22 masteries (19 child + 3 adult). Final target is ~18–20 — you can trim to whatever feels right.
+**Total drafted:** 29 masteries (26 child + 3 adult). Final target is ~20–25 — trim to whatever feels right.
 
 ---
 
@@ -315,9 +315,77 @@ Requires:
 
 ---
 
+## 🏃 Active Body (1)
+
+### 22. Active Body Champion
+**Celebration:** "Has built a consistent physical activity habit — warms up properly, knows a sport, works out at home, and has kept it going for a month."
+**Age:** 13 · **Emoji:** 💪 · **Category:** household
+
+Requires:
+- `outdoor-play-hour-age7` — Play Outside for a Full Hour
+- `daily-movement-habit-age8` — Move Your Body Every Day for 30 Minutes
+- `basic-warmup-stretches-age9` — Warm Up Properly Before Any Exercise
+- `learn-sport-basics-age10` — Learn the Rules and Basics of One Sport
+- `home-bodyweight-routine-age11` — Complete a 15-Minute Home Workout
+- `track-fitness-progress-age12` — Track Your Own Physical Activity for Four Weeks
+- `build-exercise-habit-age13` — Keep an Exercise Habit for 30 Days
+
+---
+
+## 🎨 Digital Creator (1)
+
+### 23. Young Digital Creator
+**Celebration:** "Can create and share real digital work — takes good photos, records clean videos, edits with judgement, and has published their first piece."
+**Age:** 12 · **Emoji:** 🎬 · **Category:** digital
+
+Requires:
+- `take-good-photo-age8` — Take a Well-Composed Photo
+- `record-clear-video-age9` — Record a Clear Short Video
+- `edit-photo-basics-age10` — Edit a Photo: Crop, Brighten, Adjust
+- `make-slideshow-age10` — Make a Simple Slideshow Presentation
+- `edit-video-basics-age11` — Edit a Short Video (Trim, Titles, Transitions)
+- `publish-first-creation-age12` — Publish or Share Your First Digital Creation
+
+---
+
+## 🌱 Sustainability (1)
+
+### 24. Eco-Conscious Kid
+**Celebration:** "Lives lighter on the planet — saves water and power without being asked, carries reusables, reuses before throwing, composts, and repairs instead of replacing."
+**Age:** 11 · **Emoji:** 🌱 · **Category:** household
+
+Requires:
+- `turn-off-lights-age6` — Turn Off Lights When Leaving a Room
+- `save-water-tap-age7` — Turn Off the Tap to Save Water
+- `sort-recycle-age6` — Sort Rubbish Into the Right Bin
+- `reuse-before-throw-age8` — Find a Reuse Before Throwing Away
+- `carry-reusable-age9` — Carry a Reusable Water Bottle and Bag
+- `compost-kitchen-waste-age10` — Help Compost Kitchen Scraps
+- `repair-before-replace-age11` — Try to Repair Before Replacing
+
+---
+
+## 🏥 Healthcare Self-Management (1)
+
+### 25. Handles Their Own Healthcare
+**Celebration:** "Owns their health — knows their medicines, reads labels safely, keeps their own records, books their own appointments, knows the family history."
+**Age:** 14 · **Emoji:** 🩺 · **Category:** household
+
+Requires:
+- `know-own-medicines-age11` — Know What Medicines You Take and Why
+- `medicine-dosage-safety-age12` — Read Medicine Labels and Dose Safely
+- `when-to-see-doctor-age12` — Know When to See a Doctor
+- `keep-health-record-age13` — Keep Your Own Basic Health Record
+- `manage-own-health-routine-age13` — Manage Your Own Medicine and Health Routine
+- `book-doctor-appt-age14` — Book Your Own Doctor's Appointment
+- `know-family-medical-history-age14` — Know Your Family's Medical History
+- `medical-appointment-solo-age15` — Attend a Medical Appointment Independently
+
+---
+
 ## 🎓 Cognitive / Research (1)
 
-### 22. Master Young Researcher
+### 26. Master Young Researcher
 **Celebration:** "Can research any topic independently — finds good sources, evaluates credibility, summarises, and presents."
 **Age:** 12 · **Emoji:** 🔍 · **Category:** cognitive
 
@@ -372,18 +440,10 @@ Requires:
 
 ---
 
-## Gaps I flagged (for future tasks)
+## Notes on trade-offs
 
-These are real-world masteries the catalog CAN'T currently support — I'd recommend adding 2–3 tasks in each gap later:
-
-- **"First Solo Workout / Sport"** — no tasks for physical fitness habits
-- **"Basic Digital Creator"** — no tasks for making videos, editing photos, digital art
-- **"Eco-Conscious Kid"** — sort-recycle exists but no compounding into sustainability mastery
-- **"Handle Your Own Healthcare"** — menstrual-health and medical-appointment exist, but missing consistent-doctor-visits and knowing-medicines
-
-## My notes on tough trade-offs
-
-- **#22 Master Young Researcher** is the weakest of the 22 — research is more of a process than an outcome. Consider dropping.
+- **#26 Master Young Researcher** is the weakest — research is more of a process than an outcome. Consider dropping.
 - **#18 Emergency-Ready Kid** has duplicate-feeling prereqs (`call-for-help-emergency` AND `dial-emergency-number`). Could drop one.
 - **#21 Professional Young Adult** targets age 16 but `interview-for-opportunity-age15` is 15. That's fine.
 - **Adult A1/A2/A3** — I kept them light (3 total). Adults share less than parents-of-kids; probably not the viral engine anyway.
+- **#22 Active Body, #23 Digital Creator, #24 Eco-Conscious, #25 Healthcare** — all use the new gap-fill tasks seeded by `seed_gap_tasks` command.
