@@ -9,12 +9,14 @@ CONFIG_PATH = "/etc/nginx/sites-enabled/areafair"
 OUT_PATH = "/tmp/areafair.new"
 
 BLOCK = """    location = /smartstep/privacy/ {
-        alias /home/drriyazq/static-pages/smartstep-privacy.html;
+        root /home/drriyazq/static-pages;
+        try_files /smartstep-privacy.html =404;
         default_type text/html;
     }
 
     location = /smartstep/terms/ {
-        alias /home/drriyazq/static-pages/smartstep-terms.html;
+        root /home/drriyazq/static-pages;
+        try_files /smartstep-terms.html =404;
         default_type text/html;
     }
 
@@ -28,8 +30,15 @@ def main():
         config = f.read()
 
     if "/smartstep/privacy/" in config:
-        print("Already patched — nothing to do.")
-        return 0
+        # Remove old patch so we can rewrite cleanly
+        import re
+        config = re.sub(
+            r"    location = /smartstep/privacy/ \{.*?    \}\n\n    location = /smartstep/terms/ \{.*?    \}\n\n",
+            "",
+            config,
+            count=1,
+            flags=re.DOTALL,
+        )
 
     if ANCHOR not in config:
         print(f"ERROR: anchor {ANCHOR!r} not found in {CONFIG_PATH}")
