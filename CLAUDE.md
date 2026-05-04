@@ -85,9 +85,9 @@ flutter test           # runs app/test/ladder_test.dart
 
 `flutter clean` is **only** needed when Hive TypeAdapters change (new `typeId`, new box, or changed field layout). For pure `.dart` code changes, just `flutter run`.
 
-Sign-in uses Google Sign-In via Firebase Auth. The Firebase ID token is exchanged for a Django JWT at `/api/v1/auth/firebase/`. The backend endpoint works for any Firebase provider — it just verifies the token and creates a `firebase_{uid}` Django user.
+Sign-in is phone-OTP based. India (+91) gets the code on WhatsApp via the shared Tru Smile WABA + System User token (`POST /auth/otp/{send,verify}/` — see `api/whatsapp.py` and `api/otp.py`). Other countries fall back to Firebase Phone Auth, then exchange the Firebase ID token for a Django JWT at `POST /auth/firebase/`. Successful WhatsApp verifies create or reuse a user via `AppUserPhone(user, phone_e164)`; Firebase verifies that carry a `phone_number` claim do the same so accounts unify across paths. Test bypass: phones in `OTP_TEST_PHONES` skip the WhatsApp send and accept `OTP_TEST_CODE` directly. Existing pre-OTP accounts (`firebase_<google_uid>`) keep their JWTs (30d access / 180d refresh) and can be re-claimed by phone via `python manage.py link_user_phone <username_or_email> <+91…>` (or `--csv path`).
 
-**Critical for Play Store installs:** Firebase needs BOTH SHA-1 fingerprints registered — the upload keystore SHA-1 (for `flutter install --release` builds) AND the Play App Signing SHA-1 (for Play Store installs, found in Play Console → App integrity → App signing). Missing either causes `ApiException: 10` on sign-in.
+**Critical for Play Store installs:** Firebase Phone Auth still needs BOTH SHA-1 fingerprints registered — the upload keystore SHA-1 (for `flutter install --release` builds) AND the Play App Signing SHA-1 (for Play Store installs, found in Play Console → App integrity → App signing). Only relevant for the non-+91 fallback path; +91 OTP doesn't depend on SHA-1.
 
 Sensitive Hive boxes are encrypted at rest (AES-256, key in Android Keystore). After changing the encryption layer or `ProfileKind`-level schema, existing installs need reinstall or **Settings → Apps → SmartStep → Clear storage** — the old data won't decrypt.
 
@@ -190,7 +190,7 @@ When changing anything that touches data handling, update the privacy policy con
 
 ### Flutter app (`app/`)
 
-**Stack:** Riverpod · go_router · Hive (encrypted for PII) · Dio · flutter_markdown · share_plus · flutter_secure_storage · firebase_auth + google_sign_in · qr_flutter · path_provider
+**Stack:** Riverpod · go_router · Hive (encrypted for PII) · Dio · flutter_markdown · share_plus · flutter_secure_storage · firebase_auth (Phone Auth, non-+91 fallback only) · qr_flutter · path_provider
 
 **Key files beyond what's obvious:**
 
@@ -214,7 +214,7 @@ lib/
   features/
     onboarding/
       consent_screen.dart               # first screen: DPDP consent + policy checkboxes
-      signin_screen.dart                # Google Sign-In → Firebase Auth → Django JWT
+      signin_screen.dart                # Phone OTP — WhatsApp (+91) or Firebase Phone Auth (other) → Django JWT
       child_profile_screen.dart         # kind toggle + DOB + sex + review dialog
       environment_screen.dart
       baseline_screen.dart              # dispatches to child or adult questions

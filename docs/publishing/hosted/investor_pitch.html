@@ -1,0 +1,663 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>SmartStep — Investor & Partner Brief</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+  :root {
+    --ink: #1a1a1a;
+    --muted: #555;
+    --line: #d6d6d6;
+    --accent: #1f5fa8;
+    --accent-soft: #eaf1fb;
+    --gold: #b07a1a;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    font-family: "Helvetica Neue", Arial, sans-serif;
+    color: var(--ink);
+    line-height: 1.55;
+    font-size: 11pt;
+    background: #f3f3f3;
+  }
+  .page {
+    background: #fff;
+    width: 210mm;
+    min-height: 297mm;
+    margin: 12mm auto;
+    padding: 18mm 20mm;
+    box-shadow: 0 2px 14px rgba(0,0,0,0.08);
+  }
+  h1, h2, h3, h4 {
+    font-family: Georgia, "Times New Roman", serif;
+    color: var(--ink);
+    line-height: 1.25;
+    margin: 0 0 .35em;
+  }
+  h1 { font-size: 28pt; letter-spacing: -.5px; }
+  h2 {
+    font-size: 17pt;
+    margin-top: 1.4em;
+    border-bottom: 2px solid var(--accent);
+    padding-bottom: 4px;
+    color: var(--accent);
+  }
+  h3 { font-size: 13pt; margin-top: 1.2em; color: var(--ink); }
+  h4 { font-size: 11.5pt; margin-top: 1em; color: var(--muted); }
+  p { margin: 0 0 .7em; }
+  ul, ol { margin: 0 0 .8em; padding-left: 1.2em; }
+  li { margin-bottom: .25em; }
+  strong { color: #000; }
+  em { color: var(--muted); }
+  a { color: var(--accent); text-decoration: none; }
+
+  .cover {
+    text-align: center;
+    padding: 40mm 20mm 0;
+  }
+  .cover .eyebrow {
+    text-transform: uppercase;
+    letter-spacing: 4px;
+    font-size: 10pt;
+    color: var(--muted);
+    margin-bottom: 18mm;
+  }
+  .cover h1 {
+    font-size: 44pt;
+    margin-bottom: .15em;
+    color: var(--accent);
+  }
+  .cover .tagline {
+    font-family: Georgia, serif;
+    font-size: 16pt;
+    color: var(--muted);
+    font-style: italic;
+    margin: 0 auto 22mm;
+    max-width: 140mm;
+  }
+  .cover .pillars {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8mm;
+    margin: 14mm auto 24mm;
+    max-width: 160mm;
+  }
+  .cover .pillars div {
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    padding: 6mm 4mm;
+    font-size: 10pt;
+  }
+  .cover .pillars div b { display: block; color: var(--accent); font-size: 11pt; margin-bottom: 2mm; }
+  .cover .meta {
+    border-top: 1px solid var(--line);
+    padding-top: 8mm;
+    margin-top: 14mm;
+    font-size: 10pt;
+    color: var(--muted);
+  }
+
+  .header-strip {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    border-bottom: 1px solid var(--line);
+    padding-bottom: 4mm;
+    margin-bottom: 8mm;
+    font-size: 9.5pt;
+    color: var(--muted);
+  }
+  .header-strip b { color: var(--accent); font-family: Georgia, serif; font-size: 12pt; }
+
+  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8mm; }
+  .card {
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    padding: 5mm 6mm;
+    background: #fafafa;
+  }
+  .card h3 { margin-top: 0; color: var(--accent); }
+
+  .stat-row {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 4mm;
+    margin: 4mm 0 6mm;
+  }
+  .stat {
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    padding: 4mm;
+    text-align: center;
+  }
+  .stat .num { font-family: Georgia, serif; font-size: 22pt; color: var(--accent); display: block; line-height: 1.05; }
+  .stat .lab { font-size: 9pt; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 4mm 0 6mm;
+    font-size: 10pt;
+  }
+  th, td {
+    text-align: left;
+    padding: 5px 8px;
+    border-bottom: 1px solid var(--line);
+    vertical-align: top;
+  }
+  th {
+    background: var(--accent-soft);
+    color: var(--accent);
+    font-weight: 600;
+  }
+  tr:last-child td { border-bottom: 0; }
+
+  .pull {
+    border-left: 4px solid var(--accent);
+    background: var(--accent-soft);
+    padding: 4mm 6mm;
+    margin: 4mm 0 6mm;
+    font-style: italic;
+    color: #2a2a2a;
+  }
+
+  .badge {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 12px;
+    background: var(--accent-soft);
+    color: var(--accent);
+    font-size: 9pt;
+    font-weight: 600;
+    margin-right: 4px;
+  }
+  .badge.gold { background: #fdf2dc; color: var(--gold); }
+  .badge.green { background: #e6f4ea; color: #1f7a3a; }
+
+  .signature-block {
+    margin-top: 14mm;
+    border-top: 1px solid var(--line);
+    padding-top: 6mm;
+    font-size: 10pt;
+  }
+  .signature-block .name { font-family: Georgia, serif; font-size: 14pt; color: var(--accent); margin-bottom: 1mm; }
+
+  .toolbar {
+    position: fixed;
+    top: 12px;
+    right: 14px;
+    background: var(--accent);
+    color: #fff;
+    padding: 8px 14px;
+    border-radius: 4px;
+    font-size: 11px;
+    font-family: Helvetica, Arial, sans-serif;
+    cursor: pointer;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+  }
+  .toolbar a { color: #fff; text-decoration: none; }
+
+  @media print {
+    body { background: #fff; font-size: 10.5pt; }
+    .page { box-shadow: none; margin: 0; width: 100%; min-height: auto; padding: 14mm 16mm; page-break-after: always; }
+    .page:last-child { page-break-after: auto; }
+    .toolbar { display: none; }
+    h2 { break-after: avoid; }
+    h3, h4 { break-after: avoid; }
+    table, .card, .stat-row { break-inside: avoid; }
+    a { color: var(--ink); }
+  }
+
+  @page { size: A4; margin: 0; }
+</style>
+</head>
+<body>
+
+<div class="toolbar" onclick="window.print()">Print / Save as PDF</div>
+
+<!-- =================================================================
+     PAGE 1 — COVER
+     ================================================================= -->
+<section class="page cover">
+  <div class="eyebrow">Investor &amp; Strategic Partner Brief</div>
+  <h1>SmartStep</h1>
+  <p class="tagline">"The Duolingo of real-world life skills — for children 5–16, and the adults who never had the chance to learn."</p>
+
+  <div class="pillars">
+    <div><b>581+ tasks</b>A curated, prerequisite-graphed life-skills catalog</div>
+    <div><b>29 masteries</b>Shareable certificates that turn every win into a viral moment</div>
+    <div><b>Privacy-first</b>Zero child PII on the server. DPDP &amp; Play Families compliant.</div>
+  </div>
+
+  <div class="meta">
+    Prepared by Dr Riyaz Ishaq Quereshi, Founder &amp; Lead Architect<br>
+    Mumbai, India &nbsp;·&nbsp; April 2026<br>
+    <strong>Status:</strong> Live in Play Store closed testing &nbsp;·&nbsp; 20+ active testers
+  </div>
+</section>
+
+<!-- =================================================================
+     PAGE 2 — EXECUTIVE SUMMARY
+     ================================================================= -->
+<section class="page">
+  <div class="header-strip"><b>SmartStep</b><span>Executive Summary</span></div>
+
+  <h2>Executive Summary</h2>
+  <p>
+    <strong>SmartStep</strong> is a parent-facilitated mobile application that gamifies the teaching of
+    real-world competence — money sense, household independence, digital safety, navigation, social skills,
+    and cognitive self-management — to children aged 5 to 16. The same engine, ladder, and reward loop
+    also serves adults aged 18+ who want to retroactively close their own life-skills gaps.
+  </p>
+  <p>
+    Built on a novel <strong>directed-acyclic-graph (DAG)</strong> learning model, SmartStep is the only product
+    of its kind that converts hundreds of life skills into a structured, age-graded, prerequisite-aware ladder.
+    A child cannot "ride the metro solo" until they have mastered "read a station sign", "tap a metro card",
+    and "ask a stranger for directions safely". The graph guarantees genuine progression, not scattered facts.
+  </p>
+
+  <div class="stat-row">
+    <div class="stat"><span class="num">581+</span><span class="lab">Approved Tasks</span></div>
+    <div class="stat"><span class="num">29</span><span class="lab">Mastery Bundles</span></div>
+    <div class="stat"><span class="num">20+</span><span class="lab">Active Testers</span></div>
+    <div class="stat"><span class="num">6</span><span class="lab">Skill Categories</span></div>
+  </div>
+
+  <h3>Why this product, why now</h3>
+  <ul>
+    <li><strong>An untouched market.</strong> No structured product teaches life-skills the way Duolingo teaches languages or Khan Academy teaches math. Parents know it matters; nobody has built the system.</li>
+    <li><strong>Privacy as architecture.</strong> All child data lives on-device, AES-256 encrypted. The server holds no identifiable user information. This is not a feature — it is a structural advantage that bypasses entire classes of regulatory and parental-trust risk.</li>
+    <li><strong>Two markets, one product.</strong> The same engine serves children (parent-mediated) and adults (self-directed). Effectively doubles the addressable user base from "parents of 5–16-year-olds" to "anyone who feels under-skilled at adult life".</li>
+    <li><strong>Built-in viral loop.</strong> Every task completion generates a shareable PNG certificate. Every mastery bundle generates a gold-framed achievement card. Each carries a QR + UTM-tracked short URL straight to the Play Store listing.</li>
+    <li><strong>Founder fit.</strong> Dual-qualified clinician and senior software architect with 15+ years of building production health-IT systems. SmartStep is the third shipped product in a portfolio that also includes a multi-tenant clinical EHR (SureDataPro) and an anonymous social app (TheirView, in Play Store closed testing).</li>
+  </ul>
+
+  <div class="pull">
+    SmartStep is post-prototype, in active closed-beta with 20+ testing households, and ready to scale.
+    We are open to two conversations: <strong>strategic partners</strong> (schools, parenting brands,
+    transit / financial / digital-safety institutions for sponsored mastery bundles) and
+    <strong>pre-seed investors</strong> who can fund 12 months of catalog editorial,
+    iOS launch, and growth marketing around an already-working viral mechanism.
+  </div>
+</section>
+
+<!-- =================================================================
+     PAGE 3 — PROBLEM & SOLUTION
+     ================================================================= -->
+<section class="page">
+  <div class="header-strip"><b>SmartStep</b><span>Problem &amp; Solution</span></div>
+
+  <h2>The Problem</h2>
+  <p>
+    Modern parenting has a quiet crisis: children breeze through algebra and screens, but
+    cannot count change, navigate a metro, cook an egg, recognise a phishing message,
+    or handle a household emergency. School curricula don't teach this. Parents know it
+    matters, but have no structured way to teach it — they default to <em>"I'll show them
+    when it comes up"</em>, and most of the time it never does.
+  </p>
+  <p>
+    Adults face a parallel gap: nobody taught them either, and they feel it every time
+    life throws a basic competence test — a flat tyre, a tax form, a difficult conversation.
+  </p>
+  <p>
+    The existing market offers encyclopaedic parenting books, scattered YouTube videos,
+    and Pinterest checklists. None of them are adaptive. None of them are progressive.
+    None of them are fun. <strong>There is no Duolingo for life skills.</strong>
+  </p>
+
+  <h2>The Solution</h2>
+
+  <h3>1. A directed-acyclic-graph (DAG) learning ladder</h3>
+  <p>
+    Hundreds of micro-tasks — <em>"count coins to ₹50"</em>, <em>"use a public toilet alone"</em>,
+    <em>"boil water safely"</em>, <em>"spot a phishing link"</em>, <em>"ride the metro solo"</em> —
+    are wired together as prerequisites. The graph is cycle-checked at save time. Hand-tuned
+    age ranges and ~400 prerequisite edges produce an unlock progression that mirrors how
+    competence actually compounds in real children.
+  </p>
+
+  <h3>2. Adaptive baseline + parental controls</h3>
+  <p>
+    A 5–18 question baseline at onboarding auto-marks foundational skills the child already
+    knows so they don't start at the bottom of a 500-task tree. Parents can also tap
+    <strong>Skip (Already Knows)</strong> on any node, or <strong>Not Suitable</strong> — which
+    gracefully disables that branch with a soft warning rather than blocking the user
+    elsewhere in the tree. This level of authoring control is what makes the product feel
+    parental rather than algorithmic.
+  </p>
+
+  <h3>3. A real-world reward loop</h3>
+  <p>
+    When a task is completed, the parent picks an age-appropriate reward from a curated
+    bank of 56 items spanning <strong>Time</strong> (extra park time, choose family movie),
+    <strong>Experience</strong> (cook with parent, host a friend), and
+    <strong>Material</strong> (small snack, sticker). The app tracks category usage and
+    nudges rotation to maintain novelty — gamification that doesn't require buying anything,
+    and that keeps the parent–child relationship in the centre of the loop.
+  </p>
+
+  <h3>The six skill categories</h3>
+  <table>
+    <tr><th>Category</th><th>What it teaches</th></tr>
+    <tr><td>Financial Literacy</td><td>Money sense, budgeting, transactions, scam recognition</td></tr>
+    <tr><td>Household Independence</td><td>Cooking, laundry, simple repairs, hygiene, safety</td></tr>
+    <tr><td>Digital &amp; Communication</td><td>Safe internet use, etiquette, phishing, messaging boundaries</td></tr>
+    <tr><td>Navigation &amp; Safety</td><td>Public transit, asking for help, emergency response</td></tr>
+    <tr><td>Cognitive &amp; Visuospatial</td><td>Time, memory, planning, problem-solving</td></tr>
+    <tr><td>Social</td><td>Peer interaction, conflict resolution, boundaries</td></tr>
+  </table>
+</section>
+
+<!-- =================================================================
+     PAGE 4 — VIRAL LOOP & ADULT MODE
+     ================================================================= -->
+<section class="page">
+  <div class="header-strip"><b>SmartStep</b><span>Viral Loop &amp; Adult Mode</span></div>
+
+  <h2>Mastery &amp; Shareable Certificates — The Viral Loop</h2>
+  <p>
+    SmartStep ships with <strong>29 mastery bundles</strong> — each is a hand-curated milestone,
+    e.g. <em>"Metro &amp; Transit Solo Traveler"</em> requires six specific tasks. When a child completes
+    all of them, the app generates a <strong>1080×1350 gold-framed PNG certificate</strong> client-side,
+    ready to share over WhatsApp.
+  </p>
+  <p>
+    Per-task <strong>skill certificates</strong> (1080×1080) trigger on every completion. Every
+    certificate carries a QR code linking to <strong>areafair.in/smartstep</strong> → Play Store,
+    with UTM tracking. The product is built so that <em>every meaningful win turns into a parent's
+    WhatsApp share</em>. Unlike most viral loops, this one is <strong>parent-pride driven</strong> — high
+    intent, high trust, low cost to acquire.
+  </p>
+
+  <div class="grid-2">
+    <div class="card">
+      <h3>Skill Certificate</h3>
+      <p>Triggered on any single task mastery. 1080×1080 square format optimised for WhatsApp status and Instagram.</p>
+      <p><span class="badge">Per-task</span> <span class="badge gold">26 child + 3 adult</span></p>
+    </div>
+    <div class="card">
+      <h3>Mastery Certificate</h3>
+      <p>Triggered when a child completes all tasks in a bundle. 1080×1350 gold-framed portrait format. Includes QR + child first name only.</p>
+      <p><span class="badge gold">29 bundles live</span></p>
+    </div>
+  </div>
+
+  <h2>Adult Mode — A Non-Obvious Second Market</h2>
+  <p>
+    The same engine, ladder, and reward loop work for adults who want to retroactively close
+    their own life-skills gaps — financial fluency, household competence, healthcare
+    self-management. A single device can hold mixed child and adult profiles. Adult age
+    bands extend to <strong>56+</strong>.
+  </p>
+  <p>
+    This effectively doubles the addressable user base from <em>"parents of 5–16-year-olds"</em>
+    to <em>"anyone who feels under-skilled at adult life"</em>, and de-risks the consumer
+    segment in two ways: it gives the product a self-purchasing user (an adult buys for
+    themselves, not for their child), and it lets the brand carry across as the child grows up.
+  </p>
+
+  <h2>Why this is hard to copy</h2>
+  <ul>
+    <li><strong>The DAG content catalog is the moat.</strong> 581+ approved tasks, each with a how-to guide, mandatory safety section, and parent-facing rationale, wired into ~400 prerequisite edges. Idempotent management commands act as the "source of truth" — every refinement is reproducible, version-controlled, re-runnable. A multi-month curatorial effort to reproduce.</li>
+    <li><strong>Privacy-first architecture.</strong> Most competitors centralise child data. We don't, and rebuilding to match would require a ground-up re-architecture.</li>
+    <li><strong>Adaptive baseline + skip-with-soft-warning semantics.</strong> Product thinking that takes iteration to get right.</li>
+    <li><strong>Editorial pipeline.</strong> The screening UI, status workflow (draft → pending → approved), and DAG visualiser were custom-built for this catalog and are not commoditised tools.</li>
+  </ul>
+</section>
+
+<!-- =================================================================
+     PAGE 5 — PRIVACY / TECHNOLOGY
+     ================================================================= -->
+<section class="page">
+  <div class="header-strip"><b>SmartStep</b><span>Privacy &amp; Technology</span></div>
+
+  <h2>Privacy &amp; Compliance — A Structural Advantage</h2>
+  <p>This is the slide that quiets the regulatory-risk concern.</p>
+  <ul>
+    <li><strong>Zero child PII on the server.</strong> Names, ages, sex, environment, progress, custom tasks — <em>all of it</em> lives on-device in encrypted Hive boxes (AES-256, key in Android Keystore via <code>flutter_secure_storage</code>). The backend stores only the content graph and anonymous telemetry (age-band + environment + task slug).</li>
+    <li><strong>DPDP Act 2023 (India) compliant.</strong> Consent-first onboarding, in-app privacy policy and terms, per-profile data export (DPDP "access" right via JSON share), in-app delete, contact-privacy action.</li>
+    <li><strong>Google Play Families Policy compliant.</strong> Target audience: 18+ adults. Even though child <em>content</em> exists, kids never operate the device — parents do. This sidesteps Families Policy entirely.</li>
+    <li><strong>No third-party data sharing.</strong> No advertising SDKs. No analytics SDKs touching user identity. Crashlytics is the only optional diagnostic, in release builds only.</li>
+  </ul>
+  <div class="pull">
+    This isn't a constraint we worked around — it's a deliberate architectural decision that makes
+    SmartStep <strong>cheaper to operate, faster to ship in new markets, and harder to attack</strong>
+    on data-handling grounds than any competitor.
+  </div>
+
+  <h2>Technology Stack</h2>
+  <table>
+    <tr><th>Layer</th><th>Stack</th><th>Why it matters</th></tr>
+    <tr><td>Mobile</td><td>Flutter, Riverpod, go_router, Hive (encrypted), Dio</td><td>Single codebase, iOS-ready when needed</td></tr>
+    <tr><td>Backend</td><td>Django 5 + DRF, PostgreSQL, SimpleJWT, WhiteNoise</td><td>Battle-tested, low-cost to operate</td></tr>
+    <tr><td>Auth</td><td>Firebase Auth + Google Sign-In → Django JWT exchange</td><td>Frictionless onboarding, no password to manage</td></tr>
+    <tr><td>Admin</td><td>Custom Django Admin: task screening UI, Mermaid DAG visualiser, status workflow</td><td>Editorial quality control built in</td></tr>
+    <tr><td>Content</td><td>Markdown (how-to / safety / parent-note) rendered with flutter_markdown</td><td>Easy to edit and localise</td></tr>
+    <tr><td>Hosting</td><td>VPS (Nginx → Gunicorn → Django) — portable to any cloud</td><td>Cost-controlled until scale demands it</td></tr>
+    <tr><td>Distribution</td><td>Play Store (closed testing live), Nginx 302 short URL with UTM tagging</td><td>Conversion attribution from day one</td></tr>
+  </table>
+
+  <h2>Architectural Highlights</h2>
+  <ul>
+    <li><strong>Cycle-checked DAG</strong> — every prerequisite edge runs DFS validation on save. The catalog cannot become incoherent.</li>
+    <li><strong>Idempotent content commands</strong> — the entire 581-task catalog is reproducible from version-controlled commands, not hand-edited DB rows.</li>
+    <li><strong>Pure-function ladder evaluator</strong> — <code>computeLadderState()</code> is testable, debuggable, and side-effect free.</li>
+    <li><strong>Profile-kind unification</strong> — child and adult modes share the same data model and engine; a single boolean drives every UI branch.</li>
+    <li><strong>Shareable certificates</strong> are rendered client-side via Flutter <code>RepaintBoundary</code> — no server image generation, no PII in the share.</li>
+  </ul>
+</section>
+
+<!-- =================================================================
+     PAGE 6 — TRACTION & ROADMAP
+     ================================================================= -->
+<section class="page">
+  <div class="header-strip"><b>SmartStep</b><span>Traction &amp; Roadmap</span></div>
+
+  <h2>Current Status (April 2026)</h2>
+  <ul>
+    <li><strong>Backend:</strong> Live in production at <a>https://areafair.in/smartstep-admin/</a>. <strong>581 approved tasks</strong> (509 universal child + 72 adult), gap-fill content for fitness, digital creation, eco-habits, healthcare self-management.</li>
+    <li><strong>Mobile app:</strong> Built, signed, in Play Store <strong>Closed Testing</strong> under package <code>com.areafair.smartstep</code>. <span class="badge green">20+ active testers</span> currently providing real-world feedback.</li>
+    <li><strong>Mastery &amp; sharing:</strong> 29 mastery bundles live. Both certificate types built and rendering as PNG. Share sheet wired up. UTM-tracked short URL <code>areafair.in/smartstep</code> redirecting to the Play Store listing.</li>
+    <li><strong>Compliance artifacts:</strong> Privacy policy, terms, data-safety declarations, content rating, store listing all drafted and approved by Play Console.</li>
+    <li><strong>Editorial workflow:</strong> Status workflow (draft → pending → approved), screening UI, DAG visualiser — all production-grade and ready to hand off to a content editor.</li>
+  </ul>
+
+  <h2>Roadmap (Next 6–12 Months)</h2>
+
+  <h3>Phase 1 — Production launch &amp; growth foundation (months 0–3)</h3>
+  <ul>
+    <li>Graduate from Internal → Closed → Production on Play Store</li>
+    <li>Push notifications: weekly challenges, streak nudges (model exists; send mechanism pending)</li>
+    <li>Gunicorn + systemd + monitoring on backend</li>
+    <li>Crashlytics review loop and weekly build cadence</li>
+    <li>iOS build (Flutter — incremental cost only)</li>
+  </ul>
+
+  <h3>Phase 2 — Engagement &amp; retention (months 3–6)</h3>
+  <ul>
+    <li>Family / friends weekly leaderboards (privacy-preserving — opt-in, hashed IDs)</li>
+    <li><em>Coach Mode</em> — short parent video tips per category</li>
+    <li>Catalog expansion: regional task variants (Urban India / Rural India / US suburban) using the existing <code>Environment</code> tagging</li>
+    <li>Custom-task marketplace — vetted parent-contributed tasks, reviewed via existing screening UI</li>
+  </ul>
+
+  <h3>Phase 3 — Monetisation &amp; scale (months 6–12)</h3>
+  <ul>
+    <li>Freemium subscription tier — free core ladder, paid advanced bundles + adult premium</li>
+    <li>B2B school partnerships — life-skills curriculum supplement; aggregate, anonymised classroom dashboards</li>
+    <li>Sponsored mastery bundles — transit authority for "Metro Solo Traveler", bank for "Money Smart Kid"</li>
+    <li>Localisation: Hindi, Spanish, Arabic, Bahasa</li>
+    <li>iOS production launch</li>
+  </ul>
+
+  <h2>Business Model — Multiple Defensible Paths</h2>
+  <p>SmartStep has been built so monetisation can be layered on without re-architecting:</p>
+  <ol>
+    <li><strong>Freemium consumer subscription</strong> — indicative ₹199/month or ₹1,499/year. Free tier covers core ladder; paid unlocks adult mode, advanced masteries, premium content packs, downloadable workbooks.</li>
+    <li><strong>B2B / institutional licensing</strong> — schools, paediatric clinics, after-school programs.</li>
+    <li><strong>Brand-sponsored mastery bundles</strong> — transit, financial, digital-safety, eco. Sponsorship buys logo placement on the certificate; <em>never</em> data access.</li>
+    <li><strong>Physical certificate add-on</strong> — paid premium gold-foil mailed certificate.</li>
+    <li><strong>Adult-mode standalone tier</strong> — different price-band, different positioning, same engine.</li>
+  </ol>
+</section>
+
+<!-- =================================================================
+     PAGE 7 — FOUNDER
+     ================================================================= -->
+<section class="page">
+  <div class="header-strip"><b>SmartStep</b><span>Founder</span></div>
+
+  <h2>Founder &amp; Lead Architect</h2>
+
+  <h1 style="margin-top:6mm; color: var(--accent);">Dr Riyaz Ishaq Quereshi</h1>
+  <p style="font-size:11.5pt; color:var(--muted); font-style:italic; margin-top:0;">
+    Senior Clinical Business Analyst &amp; Dental Surgeon · Health Informatics Architect
+  </p>
+
+  <p>
+    Dual-qualified <strong>Senior Clinical Business Analyst and Dental Surgeon</strong> with over
+    15 years of experience bridging frontline healthcare delivery and software engineering.
+    Architect and Founder of <strong>SureDataPro</strong>, a scalable, cloud-based Electronic
+    Health Record (EHR) and Clinical Decision Support System (CDSS) used by multiple private
+    practices today. Deep domain expertise in clinical workflows, medical coding standards,
+    and healthcare interoperability. Proven track record of translating complex clinical
+    requirements into robust technical solutions: AI-driven SNOMED CT mapping engines,
+    clinical Finite State Machines, multi-tenant healthcare architectures with stringent
+    security and compliance standards.
+  </p>
+
+  <div class="grid-2">
+    <div class="card">
+      <h3>Health Informatics</h3>
+      EHR/EMR architecture, Clinical Decision Support Systems (CDSS), interoperability,
+      clinical triage algorithms, provider data management.
+    </div>
+    <div class="card">
+      <h3>Standards &amp; Security</h3>
+      SNOMED CT, CSIRO FHIR API, ICD-10/11, Information Governance (CSP, HSTS, audit logging).
+    </div>
+    <div class="card">
+      <h3>Business Analysis</h3>
+      Requirements elicitation, agile workflow optimisation, cross-functional leadership,
+      clinical guideline translation.
+    </div>
+    <div class="card">
+      <h3>Technical Stack</h3>
+      Python, Django, PostgreSQL, HTMX, OpenCV, Anthropic Claude (Opus 4.6 / Haiku 4.5),
+      REST APIs, Flutter (Dart), PySide6/Qt, Nginx.
+    </div>
+  </div>
+
+  <h3>Selected Engineering Achievements</h3>
+  <ul>
+    <li><strong>SNOMED CT Interoperability &amp; NLP.</strong> Engineered a hybrid rules-first + ML mapping engine translating unstructured clinical notes into standardised SNOMED CT codes via the CSIRO FHIR API. FDI tooth notation parser. Anthropic Claude Haiku 4.5 fallback for complex narratives. Strict validation including lifetime/annual frequency enforcement and code-superseding logic.</li>
+    <li><strong>Clinical Decision Support &amp; Computer Vision.</strong> Orthodontic Evaluation Wizard with custom JS rules engine. Automated <em>EndoRisk</em> canal-curvature tool using OpenCV + scikit-image to compute Schneider's angle from radiographs. Endodontic Diagnosis Wizard powered by Anthropic Claude Opus 4.6 synthesising history + radiographic findings.</li>
+    <li><strong>Enterprise Security &amp; Multi-channel Operations.</strong> Security overhaul: HSTS, CSP, role-based rate limiting, system audit logging. State-based Waiting Room &amp; Queue Management module on FSM logic + HTMX. Single Django REST API serving Flutter (mobile), PySide6 (desktop), and web SaaS. Zero-loss ETL migration of decades of legacy data into centralised PostgreSQL cloud infrastructure.</li>
+  </ul>
+
+  <h3>Clinical Practice</h3>
+  <p>
+    <strong>Tru Smile Multi-Specialty Dental Clinic</strong> — Principal Dentist &amp; Clinical Director,
+    2008–present. Directed clinical and operational aspects of a high-volume practice focused on
+    conservative dentistry. Performed <strong>5,000+ complex endodontic procedures</strong> and
+    <strong>300+ implant surgeries</strong>. Mentored associate dentists on clinical excellence and
+    digital-management adoption.
+  </p>
+
+  <h3>Education</h3>
+  <ul>
+    <li><strong>Bachelor of Dental Surgery (BDS)</strong> — Rajiv Gandhi University of Health Sciences, Karnataka, 2008.</li>
+    <li><strong>Specialization in Health Informatics</strong> — Johns Hopkins University via Coursera, completion March 2026. Focused on Health IT architectures, EHRs, and data standards (SNOMED CT, HL7 FHIR).</li>
+  </ul>
+
+  <div class="pull">
+    <strong>Founder fit.</strong> A consumer learning product about real-world skills, built by a
+    practising clinician who has spent 15+ years operating in environments where information must
+    be accurate, safe, and structured — and who has independently shipped production health-IT
+    systems used by other clinics today. SmartStep is not a side project; it is the third shipped
+    product in a portfolio that demonstrates an unusually rare combination of <em>clinical depth +
+    engineering rigour + product execution</em>.
+  </div>
+</section>
+
+<!-- =================================================================
+     PAGE 8 — THE ASK
+     ================================================================= -->
+<section class="page">
+  <div class="header-strip"><b>SmartStep</b><span>The Ask</span></div>
+
+  <h2>What We Are Looking For</h2>
+  <p>We are open to two parallel conversations.</p>
+
+  <h3>1. Strategic Partners</h3>
+  <ul>
+    <li><strong>Schools &amp; education networks</strong> — life-skills supplementary curriculum.</li>
+    <li><strong>Paediatric clinics &amp; family wellness brands</strong> — distribution into the trust channel parents already use.</li>
+    <li><strong>Parenting media properties</strong> — content syndication and co-marketing.</li>
+    <li><strong>Transit authorities, banks, digital-safety institutions, eco non-profits</strong> — sponsored mastery bundles. Logo on the certificate, never data access.</li>
+    <li><strong>NGO content partners</strong> — region-specific catalog expansion (Rural India, Urban poor, conflict zones).</li>
+  </ul>
+
+  <h3>2. Pre-seed Investors</h3>
+  <p>
+    SmartStep is post-product, in active closed beta, with a working viral loop and a defensible
+    catalog moat. The next 12 months should be spent <strong>scaling the editorial pipeline,
+    launching iOS, and turning the existing organic share mechanism into measured paid+organic
+    user acquisition</strong>.
+  </p>
+
+  <h3>Indicative Funding Ask</h3>
+  <p>
+    <strong>₹1 crore (~US $120,000)</strong> for a 12–15 month runway. This is an indicative
+    pre-seed envelope and we are open to discussing a smaller seed sprint
+    (₹50 lakh, ~$60K, six-month traction-proving milestone) or a larger institutional round
+    if the partner thesis warrants it.
+  </p>
+
+  <h3>Use of Funds</h3>
+  <table>
+    <tr><th>Allocation</th><th>Amount</th><th>Outcome</th></tr>
+    <tr><td>Marketing &amp; user acquisition</td><td>₹50 L</td><td>50,000–100,000 first-year installs; ASO; Meta/Google/parenting-influencer spend</td></tr>
+    <tr><td>Content editor (full-time, 12 months)</td><td>₹12 L</td><td>Catalog expansion to 1,000+ tasks, regional variants, adult mode depth</td></tr>
+    <tr><td>Part-time growth &amp; community lead</td><td>₹8 L</td><td>Tester programme, partnerships pipeline, content marketing</td></tr>
+    <tr><td>iOS launch (one-time)</td><td>₹6 L</td><td>iOS production app; doubles addressable platforms</td></tr>
+    <tr><td>Design, brand, video</td><td>₹4 L</td><td>App Store creatives; explainer video; brand polish</td></tr>
+    <tr><td>Compliance, legal, IP</td><td>₹3 L</td><td>Incorporation, terms refresh, trademark, patent search on DAG ladder mechanic</td></tr>
+    <tr><td>Infrastructure scaling &amp; monitoring</td><td>₹4 L</td><td>Move from VPS to managed infra at user-count thresholds; Sentry; uptime</td></tr>
+    <tr><td>Operations buffer</td><td>₹3 L</td><td>Travel, founder runway top-up, contingency</td></tr>
+    <tr><th>Total</th><th>₹90 L–1 Cr</th><th>12–15 month runway</th></tr>
+  </table>
+
+  <h3>Target Milestones at End of Round</h3>
+  <ul>
+    <li>50,000+ Play Store installs (with iOS launched)</li>
+    <li>1,000+ approved tasks across child + adult catalogs</li>
+    <li>Two signed B2B school pilots</li>
+    <li>Two signed sponsored-mastery brand partnerships</li>
+    <li>Freemium tier launched with measurable conversion data</li>
+    <li>Series A readiness with 6 months of cohort retention metrics</li>
+  </ul>
+
+  <div class="pull">
+    The capital here is being raised against a working product, working viral mechanism,
+    a defensible content catalog, and a founder with a track record of shipping. The risk
+    being underwritten is <strong>distribution</strong>, not <strong>build</strong>.
+  </div>
+
+  <h2>Contact</h2>
+  <div class="signature-block">
+    <div class="name">Dr Riyaz Ishaq Quereshi</div>
+    Founder &amp; Lead Architect, SmartStep<br>
+    Mobile: <strong>+91-9867933139</strong><br>
+    Email: <strong>drriyazq@gmail.com</strong><br>
+    Web: <strong>suredatapro.areafair.in</strong> (sister product, live SaaS)<br>
+    GitHub: <strong>drriyazq</strong> &nbsp;·&nbsp; LinkedIn: <strong>drriyazq</strong><br>
+    SmartStep app: Play Store closed testing — invite available on request<br>
+    SmartStep admin demo: <strong>areafair.in/smartstep-admin</strong> (credentials on request)
+  </div>
+</section>
+
+</body>
+</html>

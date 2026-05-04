@@ -112,3 +112,24 @@ CORS_ALLOW_ALL_ORIGINS = env("CORS_ALLOW_ALL_ORIGINS")
 CORS_ALLOWED_ORIGINS = env.list("CORS_ALLOWED_ORIGINS", default=[])
 
 FIREBASE_CREDENTIALS_PATH = BASE_DIR / "firebase-credentials.json"
+
+# ── WhatsApp OTP (login for +91 numbers) ────────────────────────────────────
+# Reuses the shared Tru Smile WABA + System User token (see top-level
+# CLAUDE.md "Shared Meta WhatsApp infrastructure"). Template currently
+# `medunity_login_otp` since it already exists on the WABA — swap to a
+# dedicated `smartstep_login_otp` template once it's approved.
+WHATSAPP_ACCESS_TOKEN = env("WHATSAPP_ACCESS_TOKEN", default="")
+WHATSAPP_PHONE_NUMBER_ID = env("WHATSAPP_PHONE_NUMBER_ID", default="")
+WHATSAPP_OTP_TEMPLATE_NAME = env("WHATSAPP_OTP_TEMPLATE_NAME", default="medunity_login_otp")
+WHATSAPP_OTP_LANG = env("WHATSAPP_OTP_LANG", default="en")
+
+# ── OTP store (Redis) ───────────────────────────────────────────────────────
+# Shares the VPS Redis with MedUnity (which uses DB 2) and InnerCircle.
+# Default to DB 3 to keep namespaces separate.
+REDIS_URL = env("REDIS_URL", default="redis://localhost:6379/3")
+OTP_TTL_SECONDS = env.int("OTP_TTL_SECONDS", default=300)
+OTP_MAX_ATTEMPTS = env.int("OTP_MAX_ATTEMPTS", default=5)
+# Test bypass — phones in this list skip the WhatsApp send entirely; the verify
+# endpoint accepts OTP_TEST_CODE directly. Empty both before Production track.
+OTP_TEST_PHONES = env.list("OTP_TEST_PHONES", default=[])
+OTP_TEST_CODE = env("OTP_TEST_CODE", default="")
