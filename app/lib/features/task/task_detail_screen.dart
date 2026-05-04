@@ -432,6 +432,7 @@ class _TaskDetailState extends ConsumerState<TaskDetailScreen> {
     final category =
         task.tags.isEmpty ? 'other' : task.tags.first.category;
 
+    var wantsShare = false;
     await showModalBottomSheet(
       context: context,
       isDismissible: false,
@@ -447,22 +448,27 @@ class _TaskDetailState extends ConsumerState<TaskDetailScreen> {
         isFullyDone: isFullyDone,
         isAdult: child.isAdult,
         onShareCertificate: () {
+          wantsShare = true;
           Navigator.of(sheetCtx).pop();
-          Navigator.of(context).push(MaterialPageRoute(
-            builder: (_) => SkillCertificatePreview(
-              childName: child.name,
-              childAge: child.ageOn(DateTime.now()),
-              taskTitle: task.title,
-              categorySlug: category,
-              categoryEmoji: _categoryEmoji(category),
-              completedAt: DateTime.now(),
-            ),
-          ));
         },
       ),
     );
 
     if (!mounted) return;
+
+    if (wantsShare) {
+      await Navigator.of(context).push(MaterialPageRoute(
+        builder: (_) => SkillCertificatePreview(
+          childName: child.name,
+          childAge: child.ageOn(DateTime.now()),
+          taskTitle: task.title,
+          categorySlug: category,
+          categoryEmoji: _categoryEmoji(category),
+          completedAt: DateTime.now(),
+        ),
+      ));
+      if (!mounted) return;
+    }
 
     // Check for newly earned masteries after this completion.
     if (isFullyDone) {
