@@ -130,6 +130,18 @@ class _CertificatePreviewScaffoldState
   bool _busy = false;
 
   @override
+  void initState() {
+    super.initState();
+    // Clear any lingering undo / "practice saved" snackbar from the task
+    // screen so it doesn't sit on top of the share button.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).clearSnackBars();
+      }
+    });
+  }
+
+  @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: Text(widget.title)),
@@ -138,7 +150,7 @@ class _CertificatePreviewScaffoldState
           children: [
             Expanded(
               child: Padding(
-                padding: const EdgeInsets.all(16),
+                padding: const EdgeInsets.fromLTRB(16, 16, 16, 4),
                 child: Center(
                   child: AspectRatio(
                     aspectRatio: widget.aspectRatio,
@@ -154,7 +166,7 @@ class _CertificatePreviewScaffoldState
               ),
             ),
             Padding(
-              padding: const EdgeInsets.all(16),
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
               child: SizedBox(
                 width: double.infinity,
                 child: FilledButton.icon(

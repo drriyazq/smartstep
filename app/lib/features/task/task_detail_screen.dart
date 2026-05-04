@@ -107,6 +107,14 @@ class TaskDetailScreen extends ConsumerStatefulWidget {
 
 class _TaskDetailState extends ConsumerState<TaskDetailScreen> {
   @override
+  void deactivate() {
+    // Don't let the practice-saved undo bar follow the user to the next
+    // screen (ScaffoldMessenger lives at the app level).
+    ScaffoldMessenger.of(context).clearSnackBars();
+    super.deactivate();
+  }
+
+  @override
   Widget build(BuildContext context) {
     final asyncTask = ref.watch(_taskDetailProvider(widget.taskSlug));
     // Trigger rebuilds when any progress changes
@@ -211,26 +219,21 @@ class _TaskDetailState extends ConsumerState<TaskDetailScreen> {
         actions: [
           if (isActive)
             PopupMenuButton<String>(
-              tooltip: "Skip options",
+              tooltip: "More options",
               icon: const Icon(Icons.more_vert),
               onSelected: (val) => _handleSkipOption(task, child.id, val),
-              itemBuilder: (_) => const [
-                PopupMenuItem(
-                  value: 'known',
-                  child: ListTile(
-                    dense: true,
-                    contentPadding: EdgeInsets.zero,
-                    leading: Icon(Icons.psychology_outlined, size: 20),
-                    title: Text("My child already knows this"),
-                  ),
-                ),
+              itemBuilder: (_) => [
                 PopupMenuItem(
                   value: 'unsuitable',
                   child: ListTile(
                     dense: true,
                     contentPadding: EdgeInsets.zero,
-                    leading: Icon(Icons.not_interested, size: 20),
-                    title: Text("Not right for my child"),
+                    leading: const Icon(Icons.not_interested, size: 20),
+                    title: Text(
+                      child.isAdult
+                          ? "Not right for me"
+                          : "Not right for my child",
+                    ),
                   ),
                 ),
               ],
@@ -362,15 +365,38 @@ class _TaskDetailState extends ConsumerState<TaskDetailScreen> {
                 ),
                 onPressed: () => _bringBack(task, childId),
               )
-            : FilledButton.icon(
-                icon: const Icon(Icons.check_circle_outline),
-                label: Text(
-                    practiceCount == 0 ? "Mark as Practised" : "Practise Again"),
-                style: FilledButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(vertical: 14),
-                  minimumSize: const Size.fromHeight(48),
-                ),
-                onPressed: () => _markPractised(task, childId),
+            : Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      icon: const Icon(Icons.psychology_outlined, size: 20),
+                      label: const Text(
+                        "Already Knows",
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      style: OutlinedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        minimumSize: const Size.fromHeight(48),
+                      ),
+                      onPressed: () => _skipKnown(task, childId),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: FilledButton.icon(
+                      icon: const Icon(Icons.check_circle_outline, size: 20),
+                      label: Text(
+                        practiceCount == 0 ? "Practised" : "Practise Again",
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      style: FilledButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        minimumSize: const Size.fromHeight(48),
+                      ),
+                      onPressed: () => _markPractised(task, childId),
+                    ),
+                  ),
+                ],
               ),
       ),
     );
@@ -379,6 +405,8 @@ class _TaskDetailState extends ConsumerState<TaskDetailScreen> {
   // ── Actions ────────────────────────────────────────────────────────
 
   Future<void> _markPractised(Task task, String childId) async {
+    // Clear any lingering undo snackbar before opening the next flow.
+    ScaffoldMessenger.of(context).clearSnackBars();
     final child = HiveSetup.childBox.get(childId)!;
     final reward = await showModalBottomSheet<String?>(
       context: context,
@@ -635,18 +663,22 @@ class _TaskDetailState extends ConsumerState<TaskDetailScreen> {
     required String message,
     required Future<void> Function() onUndo,
   }) {
-    ScaffoldMessenger.of(context).hideCurrentSnackBar();
+    ScaffoldMessenger.of(context).clearSnackBars();
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(message),
-        duration: const Duration(seconds: 6),
+        duration: const Duration(seconds: 3),
         action: SnackBarAction(
           label: "Undo",
           onPressed: () async {
             await onUndo();
             if (!mounted) return;
+            ScaffoldMessenger.of(context).clearSnackBars();
             ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text("Undone.")),
+              const SnackBar(
+                content: Text("Undone."),
+                duration: Duration(seconds: 2),
+              ),
             );
           },
         ),
