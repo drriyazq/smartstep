@@ -106,11 +106,22 @@ class TaskDetailScreen extends ConsumerStatefulWidget {
 }
 
 class _TaskDetailState extends ConsumerState<TaskDetailScreen> {
+  // Captured during didChangeDependencies so deactivate() can clear snackbars
+  // even after go_router has begun detaching the route from the tree (looking
+  // up the messenger from `context` at that point throws).
+  ScaffoldMessengerState? _messenger;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _messenger = ScaffoldMessenger.maybeOf(context);
+  }
+
   @override
   void deactivate() {
     // Don't let the practice-saved undo bar follow the user to the next
     // screen (ScaffoldMessenger lives at the app level).
-    ScaffoldMessenger.of(context).clearSnackBars();
+    _messenger?.clearSnackBars();
     super.deactivate();
   }
 
