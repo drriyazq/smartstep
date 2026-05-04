@@ -45,6 +45,7 @@ class _State extends ConsumerState<BaselineScreen> {
                 tier: q.tier.index,
                 prompt: q.prompt,
                 bypassTasksUpToAge: q.bypassTasksUpToAge,
+                bypassMatchKeywords: q.bypassMatchKeywords,
               ))
           .toList();
     }
@@ -56,6 +57,7 @@ class _State extends ConsumerState<BaselineScreen> {
               tier: q.tier.index,
               prompt: q.prompt,
               bypassTasksUpToAge: q.bypassTasksUpToAge,
+              bypassMatchKeywords: q.bypassMatchKeywords,
             ))
         .toList();
   }
@@ -165,7 +167,7 @@ class _State extends ConsumerState<BaselineScreen> {
                   child: Text(
                     yesCount == 0
                         ? "Continue"
-                        : "Continue — skip $yesCount skill group${yesCount == 1 ? '' : 's'}",
+                        : "Continue — skip $yesCount skill${yesCount == 1 ? '' : 's'}",
                     style: const TextStyle(
                         fontSize: 15, fontWeight: FontWeight.w600),
                   ),
@@ -255,11 +257,15 @@ class _State extends ConsumerState<BaselineScreen> {
         }
 
         for (final q in yesQuestions) {
+          final keywords = q.bypassMatchKeywords;
           final matching = tasks.where((t) {
             final cat = t.tags.isEmpty ? 'other' : t.tags.first.category;
-            return cat == q.category &&
-                t.maxAge <= q.bypassTasksUpToAge &&
-                inKindAgeRange(t.minAge);
+            if (cat != q.category) return false;
+            if (t.maxAge > q.bypassTasksUpToAge) return false;
+            if (!inKindAgeRange(t.minAge)) return false;
+            if (keywords.isEmpty) return true;
+            final slug = t.slug.toLowerCase();
+            return keywords.any((k) => slug.contains(k));
           });
           for (final task in matching) {
             final key = TaskProgress.key(widget.childId, task.slug);
@@ -304,6 +310,7 @@ class _BaselineQ {
     required this.tier,
     required this.prompt,
     required this.bypassTasksUpToAge,
+    this.bypassMatchKeywords = const <String>[],
   });
   final String category;
   final String categoryLabel;
@@ -311,6 +318,7 @@ class _BaselineQ {
   final int tier;
   final String prompt;
   final int bypassTasksUpToAge;
+  final List<String> bypassMatchKeywords;
 }
 
 class _QuestionCard extends StatelessWidget {

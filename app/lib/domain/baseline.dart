@@ -1,15 +1,18 @@
 /// Category-based baseline assessment.
 ///
-/// Each question represents a competency level within a category. A "Yes"
-/// answer marks ALL tasks in that category with `max_age <= bypassTasksUpToAge`
-/// as `bypassed` — letting the child skip content they've already mastered.
+/// Each question represents a SINGLE observable competency. A "Yes" answer
+/// bypasses tasks in the same `category` whose `max_age <= bypassTasksUpToAge`
+/// AND whose slug matches any of `bypassMatchKeywords` (substring match,
+/// lowercased). If `bypassMatchKeywords` is empty the question bypasses the
+/// whole (category, age) tier — kept as a default for callers that don't
+/// curate keywords.
 ///
 /// Questions are filtered by the child's age via [questionsForAge]:
-///   - Basic  (bypass ≤ 8):  shown for age 7+
-///   - Intermediate (≤ 11):  shown for age 10+
-///   - Advanced (≤ 14):      shown for age 13+
+///   - Basic  (bypass <= 8):  shown for age 7+
+///   - Intermediate (<= 11):  shown for age 10+
+///   - Advanced (<= 14):      shown for age 13+
 ///
-/// Children aged 5–6 see no questions (they're at the start of the ladder).
+/// Children aged 5-6 see no questions (they're at the start of the ladder).
 
 enum BaselineTier { basic, intermediate, advanced }
 
@@ -21,6 +24,7 @@ class BaselineQuestion {
     required this.prompt,
     required this.bypassTasksUpToAge,
     required this.minChildAge,
+    this.bypassMatchKeywords = const <String>[],
   });
   final String category;
   final String categoryLabel;
@@ -28,6 +32,10 @@ class BaselineQuestion {
   final String prompt;
   final int bypassTasksUpToAge;
   final int minChildAge;
+
+  /// Slug-fragment keywords that scope which tasks a "Yes" bypasses.
+  /// Empty = bypass every approved task in (category, max_age).
+  final List<String> bypassMatchKeywords;
 
   String get tierLabel => switch (tier) {
         BaselineTier.basic => 'Basic',
@@ -42,28 +50,138 @@ const baselineQuestions = <BaselineQuestion>[
     category: 'financial',
     categoryLabel: 'Financial',
     tier: BaselineTier.basic,
-    prompt:
-        "Knows money is used to buy things, tells coins from notes, recognises common coins.",
+    prompt: "Knows that money is needed to buy things in shops.",
     bypassTasksUpToAge: 8,
     minChildAge: 7,
+    bypassMatchKeywords: [
+      'money-is-for-buying',
+      'things-not-free',
+      'money-is-earned',
+    ],
+  ),
+  BaselineQuestion(
+    category: 'financial',
+    categoryLabel: 'Financial',
+    tier: BaselineTier.basic,
+    prompt: "Can tell coins from notes and recognise common coins.",
+    bypassTasksUpToAge: 8,
+    minChildAge: 7,
+    bypassMatchKeywords: [
+      'coin-vs-note',
+      'coins-vs-notes',
+      'big-small-coin',
+      'identify-coins',
+      'recognise-bigger-notes',
+      'recognize-currency-symbol',
+    ],
+  ),
+  BaselineQuestion(
+    category: 'financial',
+    categoryLabel: 'Financial',
+    tier: BaselineTier.basic,
+    prompt: "Can pay at a shop and check the change.",
+    bypassTasksUpToAge: 8,
+    minChildAge: 7,
+    bypassMatchKeywords: [
+      'pay-at-shop',
+      'pay-at-till',
+      'simple-change-making',
+      'count-change',
+      'check-change',
+      'count-small-money',
+      'count-change-to-10',
+    ],
+  ),
+
+  BaselineQuestion(
+    category: 'financial',
+    categoryLabel: 'Financial',
+    tier: BaselineTier.intermediate,
+    prompt: "Can read a price tag.",
+    bypassTasksUpToAge: 11,
+    minChildAge: 10,
+    bypassMatchKeywords: ['read-price-tag', 'read-receipt'],
   ),
   BaselineQuestion(
     category: 'financial',
     categoryLabel: 'Financial',
     tier: BaselineTier.intermediate,
-    prompt:
-        "Counts change, reads price tags, saves pocket money, tells needs from wants.",
+    prompt: "Saves pocket money toward a goal.",
     bypassTasksUpToAge: 11,
     minChildAge: 10,
+    bypassMatchKeywords: [
+      'pocket-money',
+      'save-piggy',
+      'piggy-bank',
+      'save-for-treat',
+      'save-for-goal',
+      'save-for-medium-goal',
+      'track-savings',
+    ],
+  ),
+  BaselineQuestion(
+    category: 'financial',
+    categoryLabel: 'Financial',
+    tier: BaselineTier.intermediate,
+    prompt: "Knows the difference between a need and a want.",
+    bypassTasksUpToAge: 11,
+    minChildAge: 10,
+    bypassMatchKeywords: ['needs-vs-wants', 'wants-vs-needs'],
+  ),
+  BaselineQuestion(
+    category: 'financial',
+    categoryLabel: 'Financial',
+    tier: BaselineTier.intermediate,
+    prompt: "Compares two prices to pick the better deal.",
+    bypassTasksUpToAge: 11,
+    minChildAge: 10,
+    bypassMatchKeywords: [
+      'compare-prices',
+      'compare-unit-prices',
+      'calculate-simple-discount',
+      'estimate-grocery-total',
+    ],
+  ),
+
+  BaselineQuestion(
+    category: 'financial',
+    categoryLabel: 'Financial',
+    tier: BaselineTier.advanced,
+    prompt: "Plans and sticks to a weekly or monthly budget.",
+    bypassTasksUpToAge: 14,
+    minChildAge: 13,
+    bypassMatchKeywords: [
+      'plan-weekly-budget',
+      'monthly-allowance-budget',
+      'create-monthly-budget',
+      'spending-diary',
+      'track-week-own-spending',
+      'understand-family-budget',
+    ],
   ),
   BaselineQuestion(
     category: 'financial',
     categoryLabel: 'Financial',
     tier: BaselineTier.advanced,
-    prompt:
-        "Budgets pocket money, compares prices online, understands digital payments.",
+    prompt: "Compares prices online to find the best deal.",
     bypassTasksUpToAge: 14,
     minChildAge: 13,
+    bypassMatchKeywords: ['online-shopping-compare'],
+  ),
+  BaselineQuestion(
+    category: 'financial',
+    categoryLabel: 'Financial',
+    tier: BaselineTier.advanced,
+    prompt: "Understands UPI, cards, and digital payments.",
+    bypassTasksUpToAge: 14,
+    minChildAge: 13,
+    bypassMatchKeywords: [
+      'digital-payment-awareness',
+      'payment-methods-awareness',
+      'digital-vs-cash-awareness',
+      'subscription-hidden-costs',
+      'compound-interest-basics',
+    ],
   ),
 
   // ── HOUSEHOLD ──────────────────────────────────────────────────────
@@ -71,28 +189,141 @@ const baselineQuestions = <BaselineQuestion>[
     category: 'household',
     categoryLabel: 'Household',
     tier: BaselineTier.basic,
-    prompt:
-        "Brushes teeth, washes hands, dresses themselves, makes their bed, pours own drink.",
+    prompt: "Brushes their teeth twice a day.",
     bypassTasksUpToAge: 8,
     minChildAge: 7,
+    bypassMatchKeywords: ['brush-teeth'],
+  ),
+  BaselineQuestion(
+    category: 'household',
+    categoryLabel: 'Household',
+    tier: BaselineTier.basic,
+    prompt: "Washes their hands properly.",
+    bypassTasksUpToAge: 8,
+    minChildAge: 7,
+    bypassMatchKeywords: ['wash-hands'],
+  ),
+  BaselineQuestion(
+    category: 'household',
+    categoryLabel: 'Household',
+    tier: BaselineTier.basic,
+    prompt: "Dresses themselves including buttons and zips.",
+    bypassTasksUpToAge: 8,
+    minChildAge: 7,
+    bypassMatchKeywords: ['dress-self'],
+  ),
+  BaselineQuestion(
+    category: 'household',
+    categoryLabel: 'Household',
+    tier: BaselineTier.basic,
+    prompt: "Makes their bed every morning.",
+    bypassTasksUpToAge: 8,
+    minChildAge: 7,
+    bypassMatchKeywords: ['make-bed'],
+  ),
+  BaselineQuestion(
+    category: 'household',
+    categoryLabel: 'Household',
+    tier: BaselineTier.basic,
+    prompt: "Pours their own drink without spilling.",
+    bypassTasksUpToAge: 8,
+    minChildAge: 7,
+    bypassMatchKeywords: ['pour-drink'],
+  ),
+
+  BaselineQuestion(
+    category: 'household',
+    categoryLabel: 'Household',
+    tier: BaselineTier.intermediate,
+    prompt: "Showers or bathes themselves thoroughly.",
+    bypassTasksUpToAge: 11,
+    minChildAge: 10,
+    bypassMatchKeywords: ['shower-self'],
   ),
   BaselineQuestion(
     category: 'household',
     categoryLabel: 'Household',
     tier: BaselineTier.intermediate,
-    prompt:
-        "Showers thoroughly, follows a simple recipe, hangs laundry, sets the table.",
+    prompt: "Follows a simple recipe to prepare food.",
     bypassTasksUpToAge: 11,
     minChildAge: 10,
+    bypassMatchKeywords: [
+      'follow-simple-recipe',
+      'read-simple-recipe',
+      'make-cold-sandwich',
+      'make-breakfast',
+      'help-prep-veg',
+    ],
+  ),
+  BaselineQuestion(
+    category: 'household',
+    categoryLabel: 'Household',
+    tier: BaselineTier.intermediate,
+    prompt: "Hangs clean laundry to dry.",
+    bypassTasksUpToAge: 11,
+    minChildAge: 10,
+    bypassMatchKeywords: ['hang-laundry', 'sort-laundry-by-color'],
+  ),
+  BaselineQuestion(
+    category: 'household',
+    categoryLabel: 'Household',
+    tier: BaselineTier.intermediate,
+    prompt: "Sets the table for a meal.",
+    bypassTasksUpToAge: 11,
+    minChildAge: 10,
+    bypassMatchKeywords: ['set-table', 'set-dinner-table'],
+  ),
+
+  BaselineQuestion(
+    category: 'household',
+    categoryLabel: 'Household',
+    tier: BaselineTier.advanced,
+    prompt: "Cooks a simple meal from start to finish.",
+    bypassTasksUpToAge: 14,
+    minChildAge: 13,
+    bypassMatchKeywords: [
+      'cook-full-meal',
+      'cook-pasta',
+      'cook-egg',
+      'crack-egg',
+      'plan-meals-few-days',
+    ],
   ),
   BaselineQuestion(
     category: 'household',
     categoryLabel: 'Household',
     tier: BaselineTier.advanced,
-    prompt:
-        "Cooks simple meals, uses the washing machine, cleans a room properly, changes bed sheets.",
+    prompt: "Operates the washing machine for a full load.",
     bypassTasksUpToAge: 14,
     minChildAge: 13,
+    bypassMatchKeywords: [
+      'operate-washing-machine',
+      'do-own-laundry',
+    ],
+  ),
+  BaselineQuestion(
+    category: 'household',
+    categoryLabel: 'Household',
+    tier: BaselineTier.advanced,
+    prompt: "Cleans a room properly (sweep, mop, dust, wipe).",
+    bypassTasksUpToAge: 14,
+    minChildAge: 13,
+    bypassMatchKeywords: [
+      'clean-bathroom',
+      'sweep-mop-floor',
+      'sweep-small-area',
+      'wipe-kitchen-counters',
+      'deep-clean-space',
+    ],
+  ),
+  BaselineQuestion(
+    category: 'household',
+    categoryLabel: 'Household',
+    tier: BaselineTier.advanced,
+    prompt: "Changes their bed sheets.",
+    bypassTasksUpToAge: 14,
+    minChildAge: 13,
+    bypassMatchKeywords: ['change-bed-sheet'],
   ),
 
   // ── SOCIAL ─────────────────────────────────────────────────────────
@@ -100,28 +331,147 @@ const baselineQuestions = <BaselineQuestion>[
     category: 'social',
     categoryLabel: 'Social',
     tier: BaselineTier.basic,
-    prompt:
-        "Uses please and thank you, greets adults, shares toys, says sorry when needed.",
+    prompt: "Says please and thank you without being reminded.",
     bypassTasksUpToAge: 8,
     minChildAge: 7,
+    bypassMatchKeywords: [
+      'say-please-thank-you',
+      'say-please-thankyou',
+      'social-courtesy-words',
+    ],
+  ),
+  BaselineQuestion(
+    category: 'social',
+    categoryLabel: 'Social',
+    tier: BaselineTier.basic,
+    prompt: "Greets adults — says hello and goodbye politely.",
+    bypassTasksUpToAge: 8,
+    minChildAge: 7,
+    bypassMatchKeywords: [
+      'say-hello-back',
+      'say-goodbye-properly',
+      'greet-adults',
+      'social-greet-adult',
+    ],
+  ),
+  BaselineQuestion(
+    category: 'social',
+    categoryLabel: 'Social',
+    tier: BaselineTier.basic,
+    prompt: "Shares toys and takes turns with other children.",
+    bypassTasksUpToAge: 8,
+    minChildAge: 7,
+    bypassMatchKeywords: [
+      'share-take-turns',
+      'share-toy-no-adult',
+      'share-with-others',
+      'take-turns-game',
+    ],
+  ),
+  BaselineQuestion(
+    category: 'social',
+    categoryLabel: 'Social',
+    tier: BaselineTier.basic,
+    prompt: "Says sorry sincerely when they have done something wrong.",
+    bypassTasksUpToAge: 8,
+    minChildAge: 7,
+    bypassMatchKeywords: ['say-sorry-mean-it', 'social-apologise-sincerely'],
+  ),
+
+  BaselineQuestion(
+    category: 'social',
+    categoryLabel: 'Social',
+    tier: BaselineTier.intermediate,
+    prompt: "Listens without interrupting.",
+    bypassTasksUpToAge: 11,
+    minChildAge: 10,
+    bypassMatchKeywords: [
+      'social-listen-no-interrupt',
+      'listen-till-finished',
+      'wait-turn-speak',
+      'wait-to-speak',
+    ],
   ),
   BaselineQuestion(
     category: 'social',
     categoryLabel: 'Social',
     tier: BaselineTier.intermediate,
-    prompt:
-        "Listens without interrupting, apologises sincerely, asks adults for help, accepts compliments.",
+    prompt: "Apologises sincerely after hurting someone's feelings.",
     bypassTasksUpToAge: 11,
     minChildAge: 10,
+    bypassMatchKeywords: [
+      'social-apologise-sincerely',
+      'apologise-feelings',
+    ],
+  ),
+  BaselineQuestion(
+    category: 'social',
+    categoryLabel: 'Social',
+    tier: BaselineTier.intermediate,
+    prompt: "Asks an adult for help when stuck.",
+    bypassTasksUpToAge: 11,
+    minChildAge: 10,
+    bypassMatchKeywords: ['social-ask-help-adult', 'ask-teacher-help'],
+  ),
+  BaselineQuestion(
+    category: 'social',
+    categoryLabel: 'Social',
+    tier: BaselineTier.intermediate,
+    prompt: "Accepts a compliment gracefully.",
+    bypassTasksUpToAge: 11,
+    minChildAge: 10,
+    bypassMatchKeywords: [
+      'social-accept-compliment',
+      'social-give-compliment',
+    ],
+  ),
+
+  BaselineQuestion(
+    category: 'social',
+    categoryLabel: 'Social',
+    tier: BaselineTier.advanced,
+    prompt: "Disagrees with someone respectfully without arguing.",
+    bypassTasksUpToAge: 14,
+    minChildAge: 13,
+    bypassMatchKeywords: [
+      'social-disagree-respectfully',
+      'disagree-without-raising-voice',
+      'resolve-disagreement-words',
+    ],
   ),
   BaselineQuestion(
     category: 'social',
     categoryLabel: 'Social',
     tier: BaselineTier.advanced,
-    prompt:
-        "Disagrees respectfully, resolves conflicts, handles teasing calmly, writes thank-you notes.",
+    prompt: "Resolves a conflict with a friend.",
     bypassTasksUpToAge: 14,
     minChildAge: 13,
+    bypassMatchKeywords: ['social-resolve-conflict'],
+  ),
+  BaselineQuestion(
+    category: 'social',
+    categoryLabel: 'Social',
+    tier: BaselineTier.advanced,
+    prompt: "Handles teasing or being left out calmly.",
+    bypassTasksUpToAge: 14,
+    minChildAge: 13,
+    bypassMatchKeywords: [
+      'social-handle-teasing',
+      'social-handle-left-out',
+    ],
+  ),
+  BaselineQuestion(
+    category: 'social',
+    categoryLabel: 'Social',
+    tier: BaselineTier.advanced,
+    prompt: "Writes a thank-you note or formal email.",
+    bypassTasksUpToAge: 14,
+    minChildAge: 13,
+    bypassMatchKeywords: [
+      'social-write-thank-you',
+      'social-write-formal-email',
+      'compose-polite-email',
+    ],
   ),
 
   // ── DIGITAL ────────────────────────────────────────────────────────
@@ -129,28 +479,110 @@ const baselineQuestions = <BaselineQuestion>[
     category: 'digital',
     categoryLabel: 'Digital',
     tier: BaselineTier.basic,
-    prompt:
-        "Opens and closes apps, adjusts volume, knows not to share personal info online.",
+    prompt: "Can open and close apps on a device.",
     bypassTasksUpToAge: 8,
     minChildAge: 7,
+    bypassMatchKeywords: [
+      'open-close-app',
+      'home-screen-navigation',
+      'turn-on-off-device',
+      'power-button-shutdown',
+    ],
+  ),
+  BaselineQuestion(
+    category: 'digital',
+    categoryLabel: 'Digital',
+    tier: BaselineTier.basic,
+    prompt: "Adjusts the volume on a device.",
+    bypassTasksUpToAge: 8,
+    minChildAge: 7,
+    bypassMatchKeywords: ['volume-buttons', 'adjust-volume-brightness'],
+  ),
+  BaselineQuestion(
+    category: 'digital',
+    categoryLabel: 'Digital',
+    tier: BaselineTier.basic,
+    prompt: "Knows never to share personal info online.",
+    bypassTasksUpToAge: 8,
+    minChildAge: 7,
+    bypassMatchKeywords: [
+      'private-info-rule',
+      'no-strangers-screen',
+      'dont-share-personal-info',
+    ],
+  ),
+
+  BaselineQuestion(
+    category: 'digital',
+    categoryLabel: 'Digital',
+    tier: BaselineTier.intermediate,
+    prompt: "Searches for information using good keywords.",
+    bypassTasksUpToAge: 11,
+    minChildAge: 10,
+    bypassMatchKeywords: ['good-search-keywords', 'use-kid-safe-search'],
   ),
   BaselineQuestion(
     category: 'digital',
     categoryLabel: 'Digital',
     tier: BaselineTier.intermediate,
-    prompt:
-        "Searches with good keywords, ignores ads and popups, sends a basic email.",
+    prompt: "Recognises and ignores ads and pop-ups.",
     bypassTasksUpToAge: 11,
     minChildAge: 10,
+    bypassMatchKeywords: [
+      'recognize-ad-banner',
+      'spot-ad-vs-content',
+      'close-suspicious-popup',
+    ],
+  ),
+  BaselineQuestion(
+    category: 'digital',
+    categoryLabel: 'Digital',
+    tier: BaselineTier.intermediate,
+    prompt: "Sends a basic email.",
+    bypassTasksUpToAge: 11,
+    minChildAge: 10,
+    bypassMatchKeywords: ['simple-email', 'compose-polite-email'],
+  ),
+
+  BaselineQuestion(
+    category: 'digital',
+    categoryLabel: 'Digital',
+    tier: BaselineTier.advanced,
+    prompt: "Creates and uses strong passwords.",
+    bypassTasksUpToAge: 14,
+    minChildAge: 13,
+    bypassMatchKeywords: [
+      'create-strong-password',
+      'strong-password',
+      'passwords-are-private',
+      'turn-on-2fa',
+      'use-two-step-verification',
+    ],
   ),
   BaselineQuestion(
     category: 'digital',
     categoryLabel: 'Digital',
     tier: BaselineTier.advanced,
-    prompt:
-        "Creates strong passwords, spots phishing and misinformation, uses spreadsheets.",
+    prompt: "Spots phishing attempts and online misinformation.",
     bypassTasksUpToAge: 14,
     minChildAge: 13,
+    bypassMatchKeywords: [
+      'spot-phishing',
+      'evaluate-source-credibility',
+      'fact-check-simple',
+      'identify-misinformation',
+      'recognize-scam-offer',
+      'recognize-ai-generated-media',
+    ],
+  ),
+  BaselineQuestion(
+    category: 'digital',
+    categoryLabel: 'Digital',
+    tier: BaselineTier.advanced,
+    prompt: "Uses spreadsheets for a real-life task.",
+    bypassTasksUpToAge: 14,
+    minChildAge: 13,
+    bypassMatchKeywords: ['spreadsheet-real-use'],
   ),
 
   // ── NAVIGATION ─────────────────────────────────────────────────────
@@ -158,28 +590,126 @@ const baselineQuestions = <BaselineQuestion>[
     category: 'navigation',
     categoryLabel: 'Navigation',
     tier: BaselineTier.basic,
-    prompt:
-        "Knows home address and parents' full names, holds hand at roads, stays close in busy places.",
+    prompt: "Knows their home address and parents' full names.",
     bypassTasksUpToAge: 8,
     minChildAge: 7,
+    bypassMatchKeywords: [
+      'know-home-address',
+      'know-where-home-is',
+      'know-parents-name',
+      'know-full-name-address-phone',
+    ],
+  ),
+  BaselineQuestion(
+    category: 'navigation',
+    categoryLabel: 'Navigation',
+    tier: BaselineTier.basic,
+    prompt: "Holds an adult's hand when crossing roads.",
+    bypassTasksUpToAge: 8,
+    minChildAge: 7,
+    bypassMatchKeywords: [
+      'hold-hand-crossing',
+      'look-both-ways',
+      'cross-crosswalk-with-parent',
+      'traffic-light',
+    ],
+  ),
+  BaselineQuestion(
+    category: 'navigation',
+    categoryLabel: 'Navigation',
+    tier: BaselineTier.basic,
+    prompt: "Stays close to a parent in busy places.",
+    bypassTasksUpToAge: 8,
+    minChildAge: 7,
+    bypassMatchKeywords: [
+      'stay-close-busy-place',
+      'shout-parent-name-if-lost',
+      'stay-if-lost',
+    ],
+  ),
+
+  BaselineQuestion(
+    category: 'navigation',
+    categoryLabel: 'Navigation',
+    tier: BaselineTier.intermediate,
+    prompt: "Reads common road and transit signs.",
+    bypassTasksUpToAge: 11,
+    minChildAge: 10,
+    bypassMatchKeywords: [
+      'road-signs-basics',
+      'read-street-transit-signs',
+      'find-building-by-signage',
+      'use-pedestrian-signal',
+    ],
   ),
   BaselineQuestion(
     category: 'navigation',
     categoryLabel: 'Navigation',
     tier: BaselineTier.intermediate,
-    prompt:
-        "Reads road signs, walks to a friend's house alone, uses public transport with a parent.",
+    prompt: "Walks to a friend's house alone on a known route.",
     bypassTasksUpToAge: 11,
     minChildAge: 10,
+    bypassMatchKeywords: [
+      'walk-to-friend-house-solo',
+      'walk-to-mailbox-and-back',
+      'walk-home-from-school',
+    ],
+  ),
+  BaselineQuestion(
+    category: 'navigation',
+    categoryLabel: 'Navigation',
+    tier: BaselineTier.intermediate,
+    prompt: "Uses public transport with a parent.",
+    bypassTasksUpToAge: 11,
+    minChildAge: 10,
+    bypassMatchKeywords: [
+      'take-bus-with-parent',
+      'buy-transit-ticket',
+      'read-bus-metro-map',
+    ],
+  ),
+
+  BaselineQuestion(
+    category: 'navigation',
+    categoryLabel: 'Navigation',
+    tier: BaselineTier.advanced,
+    prompt: "Travels on public transport solo.",
+    bypassTasksUpToAge: 14,
+    minChildAge: 13,
+    bypassMatchKeywords: [
+      'travel-independently',
+      'ride-transit-independently',
+      'one-transit-stop-alone',
+      'multi-transfer-transit',
+      'navigate-transport-hub',
+      'use-rideshare-safely',
+    ],
   ),
   BaselineQuestion(
     category: 'navigation',
     categoryLabel: 'Navigation',
     tier: BaselineTier.advanced,
-    prompt:
-        "Travels on public transport solo, uses map apps, plans a day trip independently.",
+    prompt: "Uses a phone maps app to navigate.",
     bypassTasksUpToAge: 14,
     minChildAge: 13,
+    bypassMatchKeywords: [
+      'use-phone-maps-app',
+      'read-map-navigate',
+      'navigate-new-city',
+    ],
+  ),
+  BaselineQuestion(
+    category: 'navigation',
+    categoryLabel: 'Navigation',
+    tier: BaselineTier.advanced,
+    prompt: "Plans a day trip independently.",
+    bypassTasksUpToAge: 14,
+    minChildAge: 13,
+    bypassMatchKeywords: [
+      'plan-trip-independently',
+      'day-trip-unfamiliar-area',
+      'online-travel-booking',
+    ],
   ),
 
   // ── COGNITIVE ──────────────────────────────────────────────────────
@@ -187,28 +717,131 @@ const baselineQuestions = <BaselineQuestion>[
     category: 'cognitive',
     categoryLabel: 'Thinking',
     tier: BaselineTier.basic,
-    prompt:
-        "Counts, names shapes, follows two-step instructions, remembers a short list of items.",
+    prompt: "Counts and recognises numbers up to 20.",
     bypassTasksUpToAge: 8,
     minChildAge: 7,
+    bypassMatchKeywords: ['count-to-20', 'count-to-100'],
+  ),
+  BaselineQuestion(
+    category: 'cognitive',
+    categoryLabel: 'Thinking',
+    tier: BaselineTier.basic,
+    prompt: "Names common shapes.",
+    bypassTasksUpToAge: 8,
+    minChildAge: 7,
+    bypassMatchKeywords: ['name-basic-shapes'],
+  ),
+  BaselineQuestion(
+    category: 'cognitive',
+    categoryLabel: 'Thinking',
+    tier: BaselineTier.basic,
+    prompt: "Follows a two-step instruction.",
+    bypassTasksUpToAge: 8,
+    minChildAge: 7,
+    bypassMatchKeywords: [
+      'follow-two-step-instruction',
+      'follow-three-step-instruction',
+    ],
+  ),
+  BaselineQuestion(
+    category: 'cognitive',
+    categoryLabel: 'Thinking',
+    tier: BaselineTier.basic,
+    prompt: "Remembers a short list of items from memory.",
+    bypassTasksUpToAge: 8,
+    minChildAge: 7,
+    bypassMatchKeywords: [
+      'remember-three-items',
+      'recall-five-item-list',
+      'recall-four-events',
+      'memory-pairs',
+    ],
+  ),
+
+  BaselineQuestion(
+    category: 'cognitive',
+    categoryLabel: 'Thinking',
+    tier: BaselineTier.intermediate,
+    prompt: "Tells the time on an analog clock.",
+    bypassTasksUpToAge: 11,
+    minChildAge: 10,
+    bypassMatchKeywords: [
+      'tell-time-analog-clock',
+      'tell-time-hour',
+      'read-clock-5min',
+    ],
   ),
   BaselineQuestion(
     category: 'cognitive',
     categoryLabel: 'Thinking',
     tier: BaselineTier.intermediate,
-    prompt:
-        "Tells analog time, uses a calendar, makes pros-cons lists, summarises a story.",
+    prompt: "Uses a calendar to find or plan a date.",
     bypassTasksUpToAge: 11,
     minChildAge: 10,
+    bypassMatchKeywords: [
+      'use-calendar-find-date',
+      'make-weekly-plan',
+      'days-of-week-order',
+    ],
+  ),
+  BaselineQuestion(
+    category: 'cognitive',
+    categoryLabel: 'Thinking',
+    tier: BaselineTier.intermediate,
+    prompt: "Makes a simple pros-and-cons list.",
+    bypassTasksUpToAge: 11,
+    minChildAge: 10,
+    bypassMatchKeywords: ['make-pros-cons-list'],
+  ),
+  BaselineQuestion(
+    category: 'cognitive',
+    categoryLabel: 'Thinking',
+    tier: BaselineTier.intermediate,
+    prompt: "Summarises a story in a few sentences.",
+    bypassTasksUpToAge: 11,
+    minChildAge: 10,
+    bypassMatchKeywords: [
+      'summarize-short-story',
+      'predict-next-step',
+      'what-happens-next',
+      'explain-process-in-order',
+    ],
+  ),
+
+  BaselineQuestion(
+    category: 'cognitive',
+    categoryLabel: 'Thinking',
+    tier: BaselineTier.advanced,
+    prompt: "Takes structured notes from a class or talk.",
+    bypassTasksUpToAge: 14,
+    minChildAge: 13,
+    bypassMatchKeywords: ['note-key-points'],
   ),
   BaselineQuestion(
     category: 'cognitive',
     categoryLabel: 'Thinking',
     tier: BaselineTier.advanced,
-    prompt:
-        "Takes structured notes, participates in debates, applies the scientific method.",
+    prompt: "Argues both sides of a topic without losing temper.",
     bypassTasksUpToAge: 14,
     minChildAge: 13,
+    bypassMatchKeywords: [
+      'critical-thinking-argument',
+      'structured-debate',
+      'detect-biased-argument',
+    ],
+  ),
+  BaselineQuestion(
+    category: 'cognitive',
+    categoryLabel: 'Thinking',
+    tier: BaselineTier.advanced,
+    prompt: "Decides what to do with incomplete information.",
+    bypassTasksUpToAge: 14,
+    minChildAge: 13,
+    bypassMatchKeywords: [
+      'decide-with-incomplete-info',
+      'break-task-into-steps',
+      'ask-clarifying-question',
+    ],
   ),
 ];
 
