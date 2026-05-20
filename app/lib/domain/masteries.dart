@@ -565,4 +565,164 @@ const kMasteries = <Mastery>[
       'adult-tax-saving-strategy',
     ],
   ),
+  // ─────────────────────────── New masteries (2026-05-20) ──────
+  // Filling the long-standing cognitive gap (337 child tasks, only one
+  // mastery), the early-childhood social gap, and the adult capstones
+  // beyond money/household.
+  Mastery(
+    id: 'confident-question-asker',
+    title: 'Confident Question-Asker',
+    celebration:
+        'Knows when to listen, when to ask for help, and how to follow a multi-step instruction without getting lost.',
+    category: 'cognitive',
+    emoji: '🙋',
+    earnedAtAge: 9,
+    requiredTaskSlugs: [
+      'listen-till-finished-age5',
+      'follow-two-step-instruction-age5',
+      'ask-teacher-help-age6',
+      'ask-why-research-answer',
+      'follow-three-step-instruction',
+      'answer-why-with-reason-age6',
+      'break-task-into-steps',
+    ],
+  ),
+  Mastery(
+    id: 'critical-thinker-kid',
+    title: 'Critical Thinker',
+    celebration:
+        'Can tell fact from opinion, check a claim, compare options, and back an argument with a real reason.',
+    category: 'cognitive',
+    emoji: '🔍',
+    earnedAtAge: 11,
+    requiredTaskSlugs: [
+      'predict-next-step-age9',
+      'compare-options-systematic-age11',
+      'evaluate-source-credibility',
+      'fact-check-simple-age11',
+      'build-argument-reason-example-age11',
+      'compare-prices',
+    ],
+  ),
+  Mastery(
+    id: 'decision-maker-teen',
+    title: 'Decision-Maker',
+    celebration:
+        'Can plan a real-world task end-to-end — set a goal, sequence the steps, juggle competing priorities, and follow through.',
+    category: 'cognitive',
+    emoji: '🎯',
+    earnedAtAge: 14,
+    requiredTaskSlugs: [
+      'plan-and-host-event',
+      'plan-meals-few-days-age13',
+      'plan-route-with-stops',
+      'plan-trip-independently-age14',
+      'set-achieve-personal-goal-age14',
+      'manage-competing-priorities-age15',
+    ],
+  ),
+  Mastery(
+    id: 'focus-self-discipline',
+    title: 'Focus & Self-Discipline',
+    celebration:
+        'Can keep the phone away, work in focused blocks, beat procrastination, single-task, and build a small habit in a week.',
+    category: 'cognitive',
+    emoji: '🧘',
+    earnedAtAge: 13,
+    requiredTaskSlugs: [
+      'phone-away-while-studying-age10',
+      'pomodoro-25min-age11',
+      'two-minute-rule-procrastination-age12',
+      'single-task-not-multi-age13',
+      'build-seven-day-habit-age13',
+    ],
+  ),
+  Mastery(
+    id: 'kind-classmate',
+    title: 'Kind Classmate',
+    celebration:
+        'A child the others want around — greets, shares, takes turns, apologises when wrong, and includes the kid sitting alone.',
+    category: 'social',
+    emoji: '🤝',
+    earnedAtAge: 7,
+    requiredTaskSlugs: [
+      'say-hello-back-age5',
+      'say-please-thank-you-age5',
+      'say-sorry-mean-it-age5',
+      'share-take-turns-age5',
+      'greet-adults-age6',
+      'share-with-others-age6',
+      'include-someone-alone-age7',
+    ],
+  ),
+  Mastery(
+    id: 'conflict-resolver',
+    title: 'Conflict Resolver',
+    celebration:
+        'Can apologise sincerely, say no without losing the friendship, disagree respectfully, and settle a fight with words alone.',
+    category: 'social',
+    emoji: '⚖️',
+    earnedAtAge: 12,
+    requiredTaskSlugs: [
+      'apologise-feelings-age9',
+      'social-say-no-confidently',
+      'social-disagree-respectfully',
+      'social-resolve-conflict',
+      'resolve-disagreement-words',
+      'say-no-keep-friend-age11',
+    ],
+  ),
+  Mastery(
+    id: 'adult-first-job-ready',
+    title: 'First Job Ready',
+    celebration:
+        'Has the basics covered for entering the workforce — LinkedIn that works, salary negotiated, payslip understood, credit used with discipline.',
+    category: 'financial',
+    emoji: '💼',
+    earnedAtAge: 22,
+    isAdult: true,
+    requiredTaskSlugs: [
+      'adult-linkedin-that-works',
+      'adult-read-payslip',
+      'adult-credit-card-discipline',
+      'adult-negotiate-salary',
+      'adult-authentic-networking',
+    ],
+  ),
+  Mastery(
+    id: 'adult-new-apartment-movein',
+    title: 'New Apartment Move-In',
+    celebration:
+        'Can move into a flat without getting scammed — tenant rights known, lease read, landlord handled, basic repairs done solo.',
+    category: 'household',
+    emoji: '🏠',
+    earnedAtAge: 24,
+    isAdult: true,
+    requiredTaskSlugs: [
+      'adult-moving-out-checklist',
+      'adult-tenant-rights',
+      'adult-spot-rental-scams',
+      'adult-basic-home-repair',
+      'adult-deal-with-landlord',
+    ],
+  ),
+  Mastery(
+    id: 'adult-crisis-toolkit',
+    title: 'Adult Crisis Toolkit',
+    celebration:
+        'When life goes sideways, knows exactly what to do — file an FIR, build an emergency fund, spot an advanced scam, navigate government systems.',
+    category: 'navigation',
+    emoji: '🛡️',
+    earnedAtAge: 28,
+    isAdult: true,
+    requiredTaskSlugs: [
+      'adult-emergency-fund-6mo',
+      'adult-emergency-playbook',
+      'adult-file-fir',
+      'adult-file-consumer-complaint',
+      'adult-spot-advanced-scams',
+      'adult-navigate-govt-offices',
+      'adult-home-emergency-kit',
+    ],
+  ),
 ];
