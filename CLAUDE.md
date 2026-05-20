@@ -67,6 +67,10 @@ DJANGO_SETTINGS_MODULE=smartstep.settings.dev venv/bin/python manage.py seed_rew
 # Required for the Active Body / Young Digital Creator / Eco-Conscious Kid /
 # Handles Their Own Healthcare masteries to work.
 DJANGO_SETTINGS_MODULE=smartstep.settings.dev venv/bin/python manage.py seed_gap_tasks
+
+# Focus / self-discipline tasks (5 cognitive tasks, ages 10-14)
+# Required for the Focus & Self-Discipline mastery (added 2026-05-20).
+DJANGO_SETTINGS_MODULE=smartstep.settings.dev venv/bin/python manage.py seed_focus_tasks
 ```
 
 Religion seed commands (`seed_islam_tasks*`, `seed_christianity_tasks`, `seed_hinduism_tasks`) still exist but the feature was removed from the app — do not run them unless you're explicitly re-enabling religion content.
