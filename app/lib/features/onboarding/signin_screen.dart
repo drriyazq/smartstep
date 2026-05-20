@@ -1,5 +1,4 @@
 import 'package:dio/dio.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -9,11 +8,14 @@ import '../../data/api/client.dart';
 import '../../data/local/hive_setup.dart';
 import '../../data/sync/remote_sync.dart';
 
-/// Phone-OTP sign-in.
+/// Phone-OTP sign-in. WhatsApp-only across all countries.
 ///
-/// India (+91) → backend WhatsApp OTP via `/auth/otp/{send,verify}/`.
-/// Anywhere else → Firebase Phone Auth (SMS), then `/auth/firebase/` to
-/// exchange the Firebase ID token for a SmartStep JWT pair.
+/// Every number — Indian and international — is sent the 6-digit code via
+/// the shared Meta WABA + System User token (see top-level CLAUDE.md). The
+/// older Firebase Phone Auth SMS fallback was dropped on 2026-05-20 because
+/// (a) it added a second auth surface to debug and (b) the WABA template
+/// already supports outbound to any country code. Users without WhatsApp
+/// installed can't sign in — same posture as MedUnity.
 class SignInScreen extends ConsumerStatefulWidget {
   const SignInScreen({super.key});
 
@@ -28,7 +30,6 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
   bool _otpSent = false;
   bool _busy = false;
   String? _error;
-  String? _firebaseVerificationId;
 
   @override
   void dispose() {
@@ -36,8 +37,6 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
     _otpCtrl.dispose();
     super.dispose();
   }
-
-  bool get _isIndianNumber => _phoneCtrl.text.trim().startsWith('+91');
 
   String? _validatedPhone() {
     final raw = _phoneCtrl.text.trim();
@@ -60,14 +59,6 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
       _busy = true;
       _error = null;
     });
-    if (_isIndianNumber) {
-      await _sendWhatsappOtp(phone);
-    } else {
-      await _sendFirebaseOtp(phone);
-    }
-  }
-
-  Future<void> _sendWhatsappOtp(String phone) async {
     try {
       final dio = ref.read(dioProvider);
       await dio.post('/auth/otp/send/', data: {'phone': phone});
@@ -95,40 +86,6 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
     }
   }
 
-  Future<void> _sendFirebaseOtp(String phone) async {
-    try {
-      await FirebaseAuth.instance.verifyPhoneNumber(
-        phoneNumber: phone,
-        timeout: const Duration(seconds: 60),
-        verificationCompleted: (credential) async {
-          await _signInWithFirebaseCredential(credential);
-        },
-        verificationFailed: (e) {
-          if (!mounted) return;
-          setState(() {
-            _busy = false;
-            _error = 'Verification failed: ${e.message ?? e.code}';
-          });
-        },
-        codeSent: (verificationId, _) {
-          if (!mounted) return;
-          setState(() {
-            _busy = false;
-            _otpSent = true;
-            _firebaseVerificationId = verificationId;
-          });
-        },
-        codeAutoRetrievalTimeout: (_) {},
-      );
-    } catch (e) {
-      if (!mounted) return;
-      setState(() {
-        _busy = false;
-        _error = 'Could not send SMS: $e';
-      });
-    }
-  }
-
   // ── Verify ───────────────────────────────────────────────────────────────
 
   Future<void> _verifyOtp() async {
@@ -141,14 +98,6 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
       _busy = true;
       _error = null;
     });
-    if (_isIndianNumber) {
-      await _verifyWhatsappOtp(code);
-    } else {
-      await _verifyFirebaseOtp(code);
-    }
-  }
-
-  Future<void> _verifyWhatsappOtp(String code) async {
     final phone = _validatedPhone()!;
     try {
       final dio = ref.read(dioProvider);
@@ -171,60 +120,6 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
       setState(() {
         _busy = false;
         _error = 'Verification failed: $e';
-      });
-    }
-  }
-
-  Future<void> _verifyFirebaseOtp(String code) async {
-    if (_firebaseVerificationId == null) {
-      setState(() {
-        _busy = false;
-        _error = 'Request a code first.';
-      });
-      return;
-    }
-    final credential = PhoneAuthProvider.credential(
-      verificationId: _firebaseVerificationId!,
-      smsCode: code,
-    );
-    await _signInWithFirebaseCredential(credential);
-  }
-
-  Future<void> _signInWithFirebaseCredential(
-      PhoneAuthCredential credential) async {
-    try {
-      final result =
-          await FirebaseAuth.instance.signInWithCredential(credential);
-      final idToken = await result.user?.getIdToken();
-      if (idToken == null) {
-        throw Exception('No Firebase ID token returned.');
-      }
-      final dio = ref.read(dioProvider);
-      final resp = await dio.post<Map<String, dynamic>>(
-        '/auth/firebase/',
-        data: {'id_token': idToken},
-      );
-      await _onJwtPairReceived(resp.data!);
-    } on FirebaseAuthException catch (e) {
-      if (!mounted) return;
-      setState(() {
-        _busy = false;
-        _error = e.message ?? 'Sign-in failed. Try again.';
-      });
-    } on DioException catch (e) {
-      final msg = e.response?.data is Map
-          ? (e.response!.data['detail']?.toString() ?? 'Server error.')
-          : 'Server error: ${e.message}';
-      if (!mounted) return;
-      setState(() {
-        _busy = false;
-        _error = msg;
-      });
-    } catch (e) {
-      if (!mounted) return;
-      setState(() {
-        _busy = false;
-        _error = 'Sign-in failed: $e';
       });
     }
   }
@@ -282,10 +177,8 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
               const SizedBox(height: 8),
               Text(
                 _otpSent
-                    ? (_isIndianNumber
-                        ? 'Enter the 6-digit code we sent to ${_phoneCtrl.text} on WhatsApp.'
-                        : 'Enter the 6-digit code we sent to ${_phoneCtrl.text} by SMS.')
-                    : 'Indian numbers receive the code on WhatsApp. Other countries get an SMS.',
+                    ? 'Enter the 6-digit code we sent to ${_phoneCtrl.text} on WhatsApp.'
+                    : 'We\'ll send a 6-digit code on WhatsApp. Make sure WhatsApp is installed on this number.',
                 textAlign: TextAlign.center,
                 style: TextStyle(
                   fontSize: 14,
@@ -329,7 +222,6 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
                         : () => setState(() {
                               _otpSent = false;
                               _otpCtrl.clear();
-                              _firebaseVerificationId = null;
                               _error = null;
                             }),
                     child: const Text('Change number'),

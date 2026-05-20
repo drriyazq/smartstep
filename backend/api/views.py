@@ -231,61 +231,11 @@ def verify_otp(request):
     return Response(_issue_jwt_for_phone(phone))
 
 
-@api_view(["POST"])
-@permission_classes([permissions.AllowAny])
-def firebase_auth(request):
-    """Verify a Firebase Phone Auth ID token (non-+91 fallback) and return a
-    Django JWT pair. If Firebase reports a phone number on the token, that
-    phone is also linked via `AppUserPhone` so the same account can later be
-    matched from the WhatsApp OTP path.
-    """
-    import firebase_admin
-    from firebase_admin import auth as fb_auth, credentials
-
-    id_token = request.data.get("id_token", "").strip()
-    if not id_token:
-        return Response({"detail": "id_token required."}, status=status.HTTP_400_BAD_REQUEST)
-
-    if not firebase_admin._apps:
-        cred = credentials.Certificate(str(settings.FIREBASE_CREDENTIALS_PATH))
-        firebase_admin.initialize_app(cred)
-
-    try:
-        decoded = fb_auth.verify_id_token(id_token)
-    except Exception:
-        return Response(
-            {"detail": "Invalid or expired Firebase token."},
-            status=status.HTTP_401_UNAUTHORIZED,
-        )
-
-    fb_phone = _normalize_e164(decoded.get("phone_number", "") or "")
-    if fb_phone:
-        # Re-claim a pre-existing account by phone if one exists.
-        link = AppUserPhone.objects.filter(phone_e164=fb_phone).select_related("user").first()
-        if link:
-            link.verified_at = timezone.now()
-            link.save(update_fields=["verified_at"])
-            refresh = RefreshToken.for_user(link.user)
-            return Response({
-                "refresh": str(refresh),
-                "access": str(refresh.access_token),
-                "uid": fb_phone,
-            })
-
-    uid = decoded["uid"]
-    user, _ = User.objects.get_or_create(
-        username=f"firebase_{uid}",
-        defaults={"email": f"{uid}@smartstep.firebase"},
-    )
-    if fb_phone:
-        AppUserPhone.objects.update_or_create(
-            user=user,
-            defaults={"phone_e164": fb_phone, "verified_at": timezone.now()},
-        )
-
-    refresh = RefreshToken.for_user(user)
-    return Response({
-        "refresh": str(refresh),
-        "access": str(refresh.access_token),
-        "uid": fb_phone or uid,
-    })
+## NOTE — the Firebase Phone Auth view that used to live here was removed
+## on 2026-05-20. Sign-in is now WhatsApp-OTP-only for every country (the
+## existing `send_otp` + `verify_otp` views above handle it). The
+## `firebase_<uid>` users this view used to create are not migrated —
+## those accounts continue to exist in the User table but can only be
+## re-claimed via WhatsApp OTP on the linked phone number (the AppUserPhone
+## row written when the original Firebase auth ran is still authoritative
+## for that lookup).

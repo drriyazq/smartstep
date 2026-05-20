@@ -25,9 +25,9 @@ dependencies:
   # Utilities
   intl: ^0.19.0
   share_plus: ^10.0.0
-  # Firebase
+  # Firebase (auth dropped 2026-05-20 — WhatsApp OTP is the only sign-in path now;
+  # core stays for crashlytics + messaging + analytics)
   firebase_core: ^3.6.0
-  firebase_auth: ^5.3.1
   firebase_messaging: ^15.1.3
   firebase_crashlytics: ^4.1.3
   firebase_analytics: ^11.3.3

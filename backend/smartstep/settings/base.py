@@ -112,10 +112,8 @@ SIMPLE_JWT = {
 CORS_ALLOW_ALL_ORIGINS = env("CORS_ALLOW_ALL_ORIGINS")
 CORS_ALLOWED_ORIGINS = env.list("CORS_ALLOWED_ORIGINS", default=[])
 
-FIREBASE_CREDENTIALS_PATH = BASE_DIR / "firebase-credentials.json"
-
-# ── WhatsApp OTP (login for +91 numbers) ────────────────────────────────────
-# Reuses the shared Tru Smile WABA + System User token (see top-level
+# ── WhatsApp OTP (sole sign-in path) ────────────────────────────────────────
+# Reuses the shared Meta WABA + System User token (see top-level
 # CLAUDE.md "Shared Meta WhatsApp infrastructure"). Template currently
 # `medunity_login_otp` since it already exists on the WABA — swap to a
 # dedicated `smartstep_login_otp` template once it's approved.
