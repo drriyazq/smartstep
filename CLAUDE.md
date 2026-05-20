@@ -131,9 +131,17 @@ After any backend change, always `git push origin main` — the Windows developm
 
 Originally a parent-facilitated children's app, SmartStep now also supports adults who want to build street-smart real-life skills for themselves. Profiles have a **`ProfileKind` (child / adult)**; everything (ladder, onboarding, baseline, dashboard, task detail) adapts from that one flag. A single device can hold a mix of child and adult profiles.
 
-### Privacy boundary (hard constraint)
+### Storage architecture (2026-05-20 cutover)
 
-All child/adult PII (name, DOB, sex, environment, task progress, custom tasks, auth tokens) lives **on-device only** in Hive boxes, and the sensitive ones are **encrypted at rest** with AES-256 (key in Android Keystore via `flutter_secure_storage`). The server stores only the content graph and anonymous telemetry (age band + environment + task slug). Never add user identifiers to any server model or API response.
+User data **now lives server-side** (Django/Postgres in `userdata/`). The original on-device-only Hive store was killed because reinstalls and lost phones cost users their entire history. Architecture:
+
+- **Server is source of truth** for profiles, task progress, custom tasks, custom rewards, reward usage, earned masteries, and per-profile UI session items (filter chips, today's pick, collapsed-done flags). Models in `backend/userdata/models.py`. URLs at `/api/v1/me/`. Every endpoint scopes by `request.user`; cross-user reads are impossible by construction.
+- **Hive boxes remain as a transparent cache** for fast synchronous reads in screens. On every cold start (`SmartStepApp.initState`) we call `RemoteSync.bootstrap()` which pulls `GET /api/v1/me/state/` and rebuilds the boxes from scratch. The encrypted boxes (`childBox`, `progressBox`, `customTaskBox`, `sessionBox`) keep their AES-256 encryption — they hold sensitive data for the length of a session, even though it's no longer the only copy.
+- **All writes from screens must go through `RemoteSync.persist*`** (`data/sync/remote_sync.dart`). The pattern is: send to server first, then update Hive on success. Online-required: if the server call fails, the function throws `SyncException` and the screen surfaces a snackbar — there is no offline write queue.
+- **JWT + Hive encryption key stay in `flutter_secure_storage`** (Android Keystore). They are NOT moved to the server.
+- **Anonymous telemetry** (skill slug + age band + environment, no identifiers) still flows to `content.TaskCompletionEvent` exactly as before. Independent of the per-user data above.
+
+When changing any user-data write path, route through `RemoteSync`. Never call `progressBox.put` / `childBox.put` / `customTaskBox.put` / `customRewardBox.put` from a screen — those are reserved for the bootstrap hydrator.
 
 ### Compliance surface
 
@@ -150,14 +158,15 @@ When changing anything that touches data handling, update the privacy policy con
 
 **Stack:** Django 5 · DRF · SimpleJWT · django-environ · WhiteNoise · SQLite (dev) / PostgreSQL (prod)
 
-**Four apps:**
+**Five apps:**
 
 | App | Owns |
 |-----|------|
 | `content` | `Task`, `Tag`, `Environment`, `PrerequisiteEdge`, `TaskCompletionEvent` |
 | `rewards` | `RewardCategory`, `RewardItem` |
 | `notifications` | `ScheduledNotification` |
-| `api` | DRF views, serializers, URL wiring |
+| `api` | DRF views, serializers, URL wiring + auth-side models `AppUserPhone` (1:1 user ↔ E.164 phone, the lookup target for OTP flows) and `OtpDeliveryLog` (audit row for every WhatsApp send). `whatsapp.py` (Meta Graph client) and `otp.py` (Redis-backed code store) live here too. |
+| `userdata` | Server-of-truth for per-user data (2026-05-20): `Profile`, `TaskProgress`, `CustomTask`, `CustomReward`, `RewardUsage`, `EarnedMastery`, `SessionItem`. All mounted under `/api/v1/me/` via `userdata/urls.py` (DRF router). Each ViewSet's `get_queryset()` filters on `request.user`. Bulk hydration via `GET /api/v1/me/state/`. DPDP-mandated wipe via `DELETE /api/v1/me/wipe/`. |
 
 **Task model key fields:** `slug`, `title`, `how_to_md`, `safety_md`, `parent_note_md`, `min_age`, `max_age`, `sex_filter` (any/male/female), `environments` (M2M), `tags` (M2M), `status` (ReviewStatus), `repetitions_required`.
 

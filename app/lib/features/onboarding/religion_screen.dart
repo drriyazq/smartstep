@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../data/local/child_profile.dart';
 import '../../data/local/hive_setup.dart';
+import '../../data/sync/remote_sync.dart';
 
 /// Religion opt-in picker shown during onboarding (right after the
 /// environment screen). Users who opt in pick one of the five most-populous
@@ -150,7 +151,15 @@ class _ReligionScreenState extends ConsumerState<ReligionScreen> {
       religion: optedIn ? _selectedId : null,
       clearReligion: !optedIn,
     );
-    await HiveSetup.childBox.put(widget.childId, updated);
+    try {
+      await ref.read(remoteSyncProvider).persistProfile(updated);
+    } on SyncException catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(e.userMessage)),
+      );
+      return;
+    }
     if (!mounted) return;
     final addingParam = widget.adding ? '&adding=true' : '';
     context.go("/onboarding/baseline?childId=${widget.childId}$addingParam");

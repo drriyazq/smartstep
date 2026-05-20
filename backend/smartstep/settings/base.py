@@ -32,6 +32,7 @@ INSTALLED_APPS = [
     "rewards",
     "notifications",
     "api",
+    "userdata",
 ]
 
 MIDDLEWARE = [

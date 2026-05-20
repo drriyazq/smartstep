@@ -11,6 +11,7 @@ import '../../data/local/active_child.dart';
 import '../../data/local/child_profile.dart';
 import '../../data/local/hive_setup.dart';
 import '../../data/local/task_progress.dart';
+import '../../data/sync/remote_sync.dart';
 import '../../domain/masteries.dart';
 import '../../domain/mastery_evaluator.dart';
 import '../../domain/models.dart';
@@ -435,20 +436,31 @@ class _TaskDetailState extends ConsumerState<TaskDetailScreen> {
     final prevProgress = HiveSetup.progressBox.get(progressKey);
 
     final newCount = prevCount + 1;
-    await HiveSetup.sessionBox.put(countKey, newCount);
-    await HiveSetup.sessionBox.put(rewardKey, reward);
-
     final isFullyDone = newCount >= task.repetitionsRequired;
-    if (isFullyDone) {
-      await HiveSetup.progressBox.put(
-        progressKey,
-        TaskProgress(
-          taskSlug: task.slug,
-          childId: childId,
-          status: ProgressStatus.completed,
-          completedAt: DateTime.now(),
-        ),
+    try {
+      // Single round-trip to the server: status + repetitions + reward title
+      // travel together on the progress row, so a half-saved practice (count
+      // bumped but reward lost) is impossible.
+      await ref.read(remoteSyncProvider).persistProgress(
+            TaskProgress(
+              taskSlug: task.slug,
+              childId: childId,
+              status: isFullyDone
+                  ? ProgressStatus.completed
+                  : (prevProgress?.status ?? ProgressStatus.unlocked),
+              completedAt: isFullyDone ? DateTime.now() : null,
+            ),
+            repetitionsDone: newCount,
+            rewardTitle: reward,
+          );
+      await HiveSetup.sessionBox.put(countKey, newCount);
+      await HiveSetup.sessionBox.put(rewardKey, reward);
+    } on SyncException catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(e.userMessage)),
       );
+      return;
     }
 
     ref.read(progressVersionProvider.notifier).state++;
@@ -521,6 +533,7 @@ class _TaskDetailState extends ConsumerState<TaskDetailScreen> {
         childId: childId,
         isAdult: child.isAdult,
         progressBySlug: progressBySlug,
+        sync: ref.read(remoteSyncProvider),
       );
       if (mounted) {
         for (final m in newMasteries) {
@@ -544,18 +557,34 @@ class _TaskDetailState extends ConsumerState<TaskDetailScreen> {
       _showUndoSnack(
         message: "Practise #$newCount saved.",
         onUndo: () async {
-          await HiveSetup.sessionBox.put(countKey, prevCount);
-          if (prevReward == null) {
-            await HiveSetup.sessionBox.delete(rewardKey);
-          } else {
-            await HiveSetup.sessionBox.put(rewardKey, prevReward);
+          try {
+            // Roll back the server row to the prior state. If there was no
+            // prior row (this was the first practice), we re-upsert with
+            // count=0 status=unlocked instead of deleting — keeps the
+            // protocol simple (no needed-row-id lookup).
+            await ref.read(remoteSyncProvider).persistProgress(
+                  prevProgress ??
+                      TaskProgress(
+                        taskSlug: task.slug,
+                        childId: childId,
+                        status: ProgressStatus.unlocked,
+                      ),
+                  repetitionsDone: prevCount,
+                  rewardTitle: prevReward ?? '',
+                );
+            await HiveSetup.sessionBox.put(countKey, prevCount);
+            if (prevReward == null) {
+              await HiveSetup.sessionBox.delete(rewardKey);
+            } else {
+              await HiveSetup.sessionBox.put(rewardKey, prevReward);
+            }
+            ref.read(progressVersionProvider.notifier).state++;
+          } on SyncException catch (e) {
+            if (!mounted) return;
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text(e.userMessage)),
+            );
           }
-          if (prevProgress == null) {
-            await HiveSetup.progressBox.delete(progressKey);
-          } else {
-            await HiveSetup.progressBox.put(progressKey, prevProgress);
-          }
-          ref.read(progressVersionProvider.notifier).state++;
         },
       );
     }
@@ -578,14 +607,21 @@ class _TaskDetailState extends ConsumerState<TaskDetailScreen> {
       confirmLabel: "Mark as known",
     );
     if (!confirmed || !mounted) return;
-    await HiveSetup.progressBox.put(
-      TaskProgress.key(childId, task.slug),
-      TaskProgress(
-        taskSlug: task.slug,
-        childId: childId,
-        status: ProgressStatus.skippedKnown,
-      ),
-    );
+    try {
+      await ref.read(remoteSyncProvider).persistProgress(
+            TaskProgress(
+              taskSlug: task.slug,
+              childId: childId,
+              status: ProgressStatus.skippedKnown,
+            ),
+          );
+    } on SyncException catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(e.userMessage)),
+      );
+      return;
+    }
     ref.read(progressVersionProvider.notifier).state++;
     if (mounted) context.pop();
   }
@@ -599,19 +635,43 @@ class _TaskDetailState extends ConsumerState<TaskDetailScreen> {
       destructive: true,
     );
     if (!confirmed || !mounted) return;
-    await HiveSetup.progressBox.put(
-      TaskProgress.key(childId, task.slug),
-      TaskProgress(
-        taskSlug: task.slug,
-        childId: childId,
-        status: ProgressStatus.skippedUnsuitable,
-      ),
-    );
+    try {
+      await ref.read(remoteSyncProvider).persistProgress(
+            TaskProgress(
+              taskSlug: task.slug,
+              childId: childId,
+              status: ProgressStatus.skippedUnsuitable,
+            ),
+          );
+    } on SyncException catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(e.userMessage)),
+      );
+      return;
+    }
     ref.read(progressVersionProvider.notifier).state++;
     if (mounted) context.pop();
   }
 
   Future<void> _bringBack(Task task, String childId) async {
+    // "Bring back" means: restore to plain unlocked. We upsert rather than
+    // delete on the server so it's a single round-trip; the row is small.
+    try {
+      await ref.read(remoteSyncProvider).persistProgress(
+            TaskProgress(
+              taskSlug: task.slug,
+              childId: childId,
+              status: ProgressStatus.unlocked,
+            ),
+          );
+    } on SyncException catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(e.userMessage)),
+      );
+      return;
+    }
     await HiveSetup.progressBox.delete(TaskProgress.key(childId, task.slug));
     ref.read(progressVersionProvider.notifier).state++;
     if (!mounted) return;
@@ -629,6 +689,24 @@ class _TaskDetailState extends ConsumerState<TaskDetailScreen> {
       destructive: true,
     );
     if (!confirmed || !mounted) return;
+    try {
+      // Reset = unlocked row with count=0 and no reward. Single upsert call.
+      await ref.read(remoteSyncProvider).persistProgress(
+            TaskProgress(
+              taskSlug: task.slug,
+              childId: childId,
+              status: ProgressStatus.unlocked,
+            ),
+            repetitionsDone: 0,
+            rewardTitle: '',
+          );
+    } on SyncException catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(e.userMessage)),
+      );
+      return;
+    }
     await HiveSetup.progressBox.delete(TaskProgress.key(childId, task.slug));
     await HiveSetup.sessionBox.delete('count::$childId::${task.slug}');
     await HiveSetup.sessionBox.delete('reward::$childId::${task.slug}');

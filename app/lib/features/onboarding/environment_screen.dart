@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../data/local/child_profile.dart';
 import '../../data/local/hive_setup.dart';
+import '../../data/sync/remote_sync.dart';
 
 class EnvironmentScreen extends ConsumerStatefulWidget {
   const EnvironmentScreen({
@@ -61,10 +62,17 @@ class _State extends ConsumerState<EnvironmentScreen> {
 
   Future<void> _submit() async {
     final existing = HiveSetup.childBox.get(widget.childId)!;
-    await HiveSetup.childBox.put(
-      widget.childId,
-      existing.copyWith(environment: _env),
-    );
+    try {
+      await ref
+          .read(remoteSyncProvider)
+          .persistProfile(existing.copyWith(environment: _env));
+    } on SyncException catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(e.userMessage)),
+      );
+      return;
+    }
     if (!mounted) return;
     final addingParam = widget.adding ? '&adding=true' : '';
     context.go("/onboarding/baseline?childId=${widget.childId}$addingParam");

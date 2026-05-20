@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../data/local/child_profile.dart';
 import '../../data/local/hive_setup.dart';
+import '../../data/sync/remote_sync.dart';
 
 class ChildProfileScreen extends ConsumerStatefulWidget {
   const ChildProfileScreen({super.key, this.adding = false});
@@ -231,7 +232,20 @@ class _State extends ConsumerState<ChildProfileScreen> {
       environment: Environment.urban, // picked on the next screen
       kind: _kind,
     );
-    await HiveSetup.childBox.put(id, profile);
+    try {
+      // Mark this new profile active so the dashboard reads it back as the
+      // user's working profile on the next screen transition.
+      await ref
+          .read(remoteSyncProvider)
+          .persistProfile(profile, isActive: true);
+      await HiveSetup.sessionBox.put('active_child_id', id);
+    } on SyncException catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(e.userMessage)),
+      );
+      return;
+    }
     if (!mounted) return;
     final addingParam = widget.adding ? '&adding=true' : '';
     context.go("/onboarding/environment?childId=$id$addingParam");

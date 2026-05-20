@@ -10,6 +10,7 @@ import '../../data/local/custom_reward.dart';
 import '../../data/local/custom_task.dart';
 import '../../data/local/hive_setup.dart';
 import '../../data/local/task_progress.dart';
+import '../../data/sync/remote_sync.dart';
 import '../../providers.dart';
 import 'data_export.dart';
 
@@ -52,7 +53,17 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
       ),
     );
     if (result == null || result.isEmpty) return;
-    await HiveSetup.childBox.put(_child.id, _child.copyWith(name: result));
+    try {
+      await ref
+          .read(remoteSyncProvider)
+          .persistProfile(_child.copyWith(name: result));
+    } on SyncException catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(e.userMessage)),
+      );
+      return;
+    }
     if (mounted) setState(() {});
   }
 
@@ -130,7 +141,11 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     if (confirmed != true) return;
     // if all selected, store empty string (means "all")
     final toSave = selected.length == _allCategories.length ? '' : selected.join(',');
-    await HiveSetup.sessionBox.put('cat_filter::${_child.id}', toSave);
+    await ref.read(remoteSyncProvider).persistSession(
+          childClientId: _child.id,
+          key: 'cat_filter::${_child.id}',
+          value: toSave,
+        );
     ref.read(progressVersionProvider.notifier).state++;
     if (mounted) setState(() {});
   }
@@ -168,7 +183,17 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
       ),
     );
     if (result == null) return;
-    await HiveSetup.childBox.put(_child.id, _child.copyWith(environment: result));
+    try {
+      await ref
+          .read(remoteSyncProvider)
+          .persistProfile(_child.copyWith(environment: result));
+    } on SyncException catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(e.userMessage)),
+      );
+      return;
+    }
     ref.invalidate(catalogProvider);
     if (mounted) setState(() {});
   }
@@ -205,8 +230,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
         title: Text("Delete ${c.name}'s data?"),
         content: Text(
           isLast
-              ? "This will permanently delete all of ${c.name}'s data from this device. Since this is the only child, you will be signed out and returned to the start."
-              : "This will permanently delete all of ${c.name}'s profile, progress, rewards and custom tasks from this device. This cannot be undone.",
+              ? "This will permanently delete all of ${c.name}'s data from your SmartStep account. Since this is the only profile, you will be signed out and returned to the start."
+              : "This will permanently delete all of ${c.name}'s profile, progress, rewards and custom tasks from your SmartStep account. This cannot be undone.",
         ),
         actions: [
           TextButton(
@@ -225,34 +250,24 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     );
     if (confirmed != true || !mounted) return;
 
-    // Delete all progress for this child
-    final progressKeys = HiveSetup.progressBox.keys
-        .where((k) => (k as String).startsWith(c.id))
-        .toList();
-    await HiveSetup.progressBox.deleteAll(progressKeys);
-
-    // Delete custom tasks for this child
-    final customTaskKeys = HiveSetup.customTaskBox.values
-        .where((t) => t.childId == c.id)
-        .map((t) => t.id)
-        .toList();
-    await HiveSetup.customTaskBox.deleteAll(customTaskKeys);
-
-    // Delete custom rewards for this child
-    final customRewardKeys = HiveSetup.customRewardBox.values
-        .where((r) => r.childId == c.id)
-        .map((r) => r.id)
-        .toList();
-    await HiveSetup.customRewardBox.deleteAll(customRewardKeys);
-
-    // Delete session-scoped child keys (practice counts, rewards, filters)
+    try {
+      // Server cascade deletes progress, custom items, masteries, session
+      // items via CASCADE on the Profile FK. RemoteSync clears the matching
+      // local Hive rows in the same call.
+      await ref.read(remoteSyncProvider).deleteProfile(c.id);
+    } on SyncException catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(e.userMessage)),
+      );
+      return;
+    }
+    // Tidy up any per-child session keys the server doesn't know about
+    // (filter chips, practice counts, saved reward titles).
     final sessionKeysToDelete = HiveSetup.sessionBox.keys
         .where((k) => k is String && k.contains(c.id))
         .toList();
     await HiveSetup.sessionBox.deleteAll(sessionKeysToDelete);
-
-    // Finally delete the child record
-    await HiveSetup.childBox.delete(c.id);
 
     if (isLast) {
       // No children left — sign out completely, consent still counts
@@ -265,7 +280,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     // Switch active child to another if the deleted one was active
     if (ref.read(activeChildIdProvider) == c.id) {
       final next = HiveSetup.childBox.values.first.id;
-      setActiveChild(ref.read(activeChildIdProvider.notifier), next);
+      setActiveChild(ref.read(activeChildIdProvider.notifier), next, ref: ref);
     }
     ref.read(progressVersionProvider.notifier).state++;
     if (!mounted) return;
@@ -290,8 +305,9 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
       builder: (_) => AlertDialog(
         title: const Text("Log Out?"),
         content: const Text(
-          "This will remove all children and progress from this device. "
-          "You will need to set up the app again.",
+          "This will sign you out on this device. Your SmartStep account, "
+          "including all profiles and progress, stays safe — sign back in "
+          "with the same phone number to restore everything.",
         ),
         actions: [
           TextButton(
@@ -308,6 +324,9 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
       ),
     );
     if (confirmed != true) return;
+    // Log-out is local-only: we wipe the device cache + JWT, but the user's
+    // account + server data remain so they can sign back in and resume.
+    // For full server-side delete see [_contactPrivacy] / wipeRemote().
     await HiveSetup.childBox.clear();
     await HiveSetup.progressBox.clear();
     await HiveSetup.sessionBox.clear();
@@ -341,12 +360,15 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
       ),
     );
     if (confirmed != true) return;
-    final childId = _child.id;
-    final keysToDelete = HiveSetup.progressBox.keys
-        .where((k) => (k as String).startsWith(childId))
-        .toList();
-    await HiveSetup.progressBox.deleteAll(keysToDelete);
-    await HiveSetup.rewardUsageBox.clear();
+    try {
+      await ref.read(remoteSyncProvider).resetProgress(_child.id);
+    } on SyncException catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(e.userMessage)),
+      );
+      return;
+    }
     if (mounted) {
       ref.read(progressVersionProvider.notifier).state++;
       setState(() {});
@@ -421,12 +443,30 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
       notes: notesCtrl.text.trim(),
       isFree: isFree,
     );
-    await HiveSetup.customRewardBox.put(id, reward);
+    try {
+      await ref.read(remoteSyncProvider).persistCustomReward(reward);
+    } on SyncException catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(e.userMessage)),
+      );
+      return;
+    }
     if (mounted) setState(() {});
   }
 
   Future<void> _deleteCustomReward(String id) async {
-    await HiveSetup.customRewardBox.delete(id);
+    final reward = HiveSetup.customRewardBox.get(id);
+    if (reward == null) return;
+    try {
+      await ref.read(remoteSyncProvider).deleteCustomReward(reward);
+    } on SyncException catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(e.userMessage)),
+      );
+      return;
+    }
     if (mounted) setState(() {});
   }
 
@@ -505,7 +545,15 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
       howToMd: howToCtrl.text.trim(),
       parentNoteMd: noteCtrl.text.trim(),
     );
-    await HiveSetup.customTaskBox.put(id, task);
+    try {
+      await ref.read(remoteSyncProvider).persistCustomTask(task);
+    } on SyncException catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(e.userMessage)),
+      );
+      return;
+    }
     ref.read(progressVersionProvider.notifier).state++;
     if (mounted) setState(() {});
   }
@@ -579,7 +627,15 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
       howToMd: howToCtrl.text.trim(),
       parentNoteMd: noteCtrl.text.trim(),
     );
-    await HiveSetup.customTaskBox.put(task.id, updated);
+    try {
+      await ref.read(remoteSyncProvider).persistCustomTask(updated);
+    } on SyncException catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(e.userMessage)),
+      );
+      return;
+    }
     ref.read(progressVersionProvider.notifier).state++;
     if (mounted) setState(() {});
   }
@@ -605,10 +661,15 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
       ),
     );
     if (confirmed != true) return;
-    await HiveSetup.customTaskBox.delete(task.id);
-    // Remove associated progress
-    final progressKey = TaskProgress.key(task.childId, task.progressSlug);
-    await HiveSetup.progressBox.delete(progressKey);
+    try {
+      await ref.read(remoteSyncProvider).deleteCustomTask(task);
+    } on SyncException catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(e.userMessage)),
+      );
+      return;
+    }
     await HiveSetup.sessionBox.delete('reward::${task.childId}::${task.progressSlug}');
     ref.read(progressVersionProvider.notifier).state++;
     if (mounted) setState(() {});
@@ -929,8 +990,10 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                         : TextButton(
                             onPressed: () {
                               setActiveChild(
-                                  ref.read(activeChildIdProvider.notifier),
-                                  c.id);
+                                ref.read(activeChildIdProvider.notifier),
+                                c.id,
+                                ref: ref,
+                              );
                               setState(() {});
                             },
                             child: const Text("Switch"),
@@ -1253,20 +1316,21 @@ class _DataTransparencyCardState extends State<_DataTransparencyCard> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   const _DataRow(
-                    emoji: '📱',
-                    title: 'On this device only',
+                    emoji: '☁️',
+                    title: 'Saved to your SmartStep account',
                     items: [
                       "Child's name, date of birth, sex, environment",
                       'Skill progress and completion dates',
                       'Reward choices you select',
                       'Custom tasks and rewards you add',
+                      'Earned achievement certificates',
                     ],
                     subtle: false,
                   ),
                   const SizedBox(height: 10),
                   const _DataRow(
                     emoji: '📊',
-                    title: 'Sent anonymously to server',
+                    title: 'Sent anonymously for product improvement',
                     items: [
                       'Skill identifier + age band + environment when a skill is completed',
                       'No name, phone, child ID, or date of birth',
@@ -1286,7 +1350,7 @@ class _DataTransparencyCardState extends State<_DataTransparencyCard> {
                   ),
                   const SizedBox(height: 10),
                   Text(
-                    "All sensitive on-device data is encrypted with AES-256.",
+                    "Account data is held with encryption at rest and sent over HTTPS. Sign back in with the same phone number to restore everything on a new device.",
                     style: TextStyle(
                       fontSize: 12,
                       color: Colors.blue.shade900,

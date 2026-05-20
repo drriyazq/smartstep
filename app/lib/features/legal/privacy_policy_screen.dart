@@ -7,30 +7,38 @@ class PrivacyPolicyScreen extends StatelessWidget {
   static const _content = '''
 # SmartStep Privacy Policy
 
-**Last updated:** April 2026
+**Last updated:** May 2026
 **Applies to:** SmartStep Android application
 
 SmartStep is a parent-facilitated life-skills app for children aged 5–16. This policy explains what information we handle, where it is stored, and your rights under the Digital Personal Data Protection Act 2023 (India) and the Google Play Families Policy.
 
 ## 1. Who we are
 
-SmartStep is published by the SmartStep team (an initiative of the owner of this device's account). You can reach us at **drdentalmail@gmail.com** for any privacy question, grievance, or data-rights request.
+SmartStep is published by the SmartStep team (an initiative of the owner of this device's account). You can reach us at **drdentalmail@gmail.com** for any privacy question, grievance, or data-rights request. For the purposes of the DPDP Act 2023, the SmartStep team acts as the **Data Fiduciary**.
 
 ## 2. What information we handle
 
-### On this device (never uploaded)
-We store the following on your phone only, using encrypted local storage (AES-256 via Android Keystore):
+### Stored in your SmartStep account on our servers
+So that your progress is not lost if you change phones or reinstall the app, the following information is saved to your SmartStep account on our secure servers:
 
-- Your child's **name or nickname**
+- Your child's (or your own adult) **name or nickname**
 - Your child's **date of birth, sex**, and **living environment** (urban / suburban / rural)
-- **Skill progress** — which skills your child has practised, mastered, or skipped
+- **Skill progress** — which skills have been practised, mastered, or skipped
 - **Reward choices** you select after completed skills
 - **Custom tasks and rewards** you add yourself
+- **Earned achievement certificates** (mastery badges)
 - Your **parental consent** confirmation and timestamp
+- Your **phone number**, which is the unique identifier of your account
+
+### Stored on this device
+- Your SmartStep **login token** (so you don't have to sign in each launch). Kept in the platform's encrypted secure storage (Android Keystore).
+- A **local cache** of the data above, so the app works quickly. The cache is fully replaced from the server on every launch.
+- Your **parental consent** confirmation (also mirrored on the server when you create your first profile).
 
 ### Sent to our servers
-- The **phone number** you enter is sent to Google Firebase Authentication solely to verify that you are the real owner via OTP, then exchanged for an app login token. We do not store your phone number outside of that.
-- **Anonymous telemetry** when a skill is completed: the skill's identifier, your child's age band (e.g. "7–8"), and your child's environment. This is used only to improve which skills are surfaced. It contains no child name, phone number, child identifier, or precise date of birth.
+- The **phone number** you enter is sent to our SmartStep backend (or, outside India, to Google Firebase Authentication) solely to verify that you are the real owner via OTP. Your verified phone number is then used as your SmartStep account identifier.
+- All account data described in *"Stored in your SmartStep account on our servers"* above, sent over HTTPS with TLS 1.2 or higher.
+- **Anonymous telemetry** when a skill is completed: the skill's identifier, your child's age band (e.g. "7–8"), and your child's environment. This is used only to improve which skills are surfaced. It contains no name, phone number, child identifier, or precise date of birth.
 
 ### Never collected
 - Location, contacts, camera, microphone, SMS content, or device storage
@@ -40,24 +48,25 @@ We store the following on your phone only, using encrypted local storage (AES-25
 
 ## 3. Why we handle this information
 
-1. To run the ladder of skills on your device (all on-device data)
+1. To run the ladder of skills and sync it across your devices (account data on our servers)
 2. To verify you are a real person during sign-in (phone OTP)
-3. To improve the app for all families (anonymous telemetry only)
+3. To preserve your child's progress if you change phones or reinstall (account data on our servers)
+4. To improve the app for all families (anonymous telemetry only)
 
 ## 4. How long we keep it
 
-- **On-device data:** stays until you delete it. You can delete individual children, reset progress, or log out at any time from the Profile screen.
+- **Account data on our servers:** retained while your account exists. You can delete individual children, reset progress, log out (which wipes the local cache but leaves the account), or fully erase your account at any time from the Profile screen. Full account deletion permanently removes all your data from our servers within 30 days.
 - **Anonymous telemetry:** retained indefinitely in aggregate form, with no way to re-identify a child.
-- **Phone number during authentication:** handled by Google Firebase under their terms. Firebase does not share it back to us as a usable identifier.
+- **Phone number during authentication (Firebase fallback):** handled by Google Firebase under their terms.
 
 ## 5. Your rights
 
 Under the Digital Personal Data Protection Act 2023 (India), you have the right to:
 
-- **Access** your child's data — use *Export my child's data* in Profile to download a JSON file of everything stored
+- **Access** your child's data — use *Export my child's data* in Profile to download a JSON file of everything we have on the account
 - **Correct** any information — edit the child's profile or environment from Profile at any time
-- **Erase** the data — delete individual children or log out to wipe everything
-- **Withdraw consent** — logging out withdraws consent and erases all on-device data
+- **Erase** the data — delete individual children, log out, or fully delete your account from Profile
+- **Withdraw consent** — full account deletion erases all account data from our servers
 - **Raise a grievance** — write to **drdentalmail@gmail.com** for any complaint. We will acknowledge within 7 days and respond within 30 days
 
 ## 6. Children's privacy
@@ -70,16 +79,18 @@ If you believe a child has set up the app without guardian consent, please conta
 
 SmartStep uses the following third-party services, each with their own privacy practices:
 
-- **Google Firebase Authentication** — to send OTP and verify your phone number
+- **Our own SmartStep backend** — hosted in India, runs the synced skill ladder, stores account data
+- **Google Firebase Authentication (non-India numbers only)** — to send OTP and verify your phone number
 - **Google Firebase Cloud Messaging** — reserved for future use to send important notifications (e.g. weekly practice reminders). Not active yet.
 
 No advertising SDKs, analytics platforms, or data brokers are used.
 
 ## 8. Security
 
-- All sensitive local data (your child's profile, auth tokens, progress) is encrypted at rest using AES-256 with a key held in the platform's secure keystore.
-- Network traffic uses HTTPS with TLS 1.2 or higher.
-- We follow Google Play's Data Safety standards.
+- Network traffic uses HTTPS with TLS 1.2 or higher in both directions.
+- Login tokens are stored on-device in the platform's encrypted secure storage (Android Keystore / iOS Keychain).
+- Account data on our servers is held in a database with encryption at rest, accessible only to the SmartStep team for support and abuse-prevention purposes.
+- We follow Google Play's Data Safety standards and report any qualifying security incident under the DPDP Act 2023 within the statutory timeline.
 
 ## 9. Changes to this policy
 

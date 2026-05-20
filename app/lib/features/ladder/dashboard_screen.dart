@@ -200,7 +200,10 @@ class DashboardScreen extends ConsumerWidget {
                 onTap: () {
                   if (c.id != activeId) {
                     setActiveChild(
-                        ref.read(activeChildIdProvider.notifier), c.id);
+                      ref.read(activeChildIdProvider.notifier),
+                      c.id,
+                      ref: ref,
+                    );
                   }
                   Navigator.pop(context);
                 },

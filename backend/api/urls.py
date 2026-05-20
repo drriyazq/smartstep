@@ -1,4 +1,4 @@
-from django.urls import path
+from django.urls import include, path
 
 from . import views
 
@@ -11,4 +11,7 @@ urlpatterns = [
     path("rewards/", views.reward_list, name="reward-list"),
     path("notifications/active/", views.active_notifications, name="active-notifications"),
     path("telemetry/task-completion/", views.record_task_completion, name="task-completion"),
+    # Server-of-truth user data (profiles, progress, custom items, masteries,
+    # session/UI state). Replaces the on-device Hive store as of 2026-05-20.
+    path("me/", include("userdata.urls")),
 ]

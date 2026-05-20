@@ -6,6 +6,7 @@ import '../../data/api/reward_repository.dart';
 import '../../data/local/custom_reward.dart';
 import '../../data/local/hive_setup.dart';
 import '../../data/local/reward_usage.dart';
+import '../../data/sync/remote_sync.dart';
 import '../../domain/models.dart';
 
 final _rewardsProvider = FutureProvider.family<List<Reward>, int>((ref, age) {
@@ -444,7 +445,7 @@ class _CategorySection extends StatelessWidget {
 
 // ─── Single reward card ───────────────────────────────────────────────
 
-class _RewardCard extends StatelessWidget {
+class _RewardCard extends ConsumerWidget {
   const _RewardCard({
     required this.entry,
     required this.meta,
@@ -459,7 +460,7 @@ class _RewardCard extends StatelessWidget {
   final bool isLast;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final fmt = DateFormat('d MMM yy');
     final usedRecently = pastDates.isNotEmpty &&
         DateTime.now().difference(pastDates.first).inDays <= 14;
@@ -471,12 +472,23 @@ class _RewardCard extends StatelessWidget {
       onTap: () async {
         final category =
             entry.isCustom ? CustomReward.category : entry.category;
-        await HiveSetup.rewardUsageBox.add(RewardUsage(
-          childId: childId,
-          rewardCategory: category,
-          rewardTitle: entry.title,
-          usedAt: DateTime.now(),
-        ));
+        try {
+          await ref.read(remoteSyncProvider).recordRewardUsage(
+                RewardUsage(
+                  childId: childId,
+                  rewardCategory: category,
+                  rewardTitle: entry.title,
+                  usedAt: DateTime.now(),
+                ),
+              );
+        } on SyncException catch (e) {
+          if (context.mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text(e.userMessage)),
+            );
+          }
+          return;
+        }
         if (context.mounted) Navigator.of(context).pop(entry.title);
       },
       child: Padding(

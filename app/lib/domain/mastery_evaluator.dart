@@ -1,5 +1,6 @@
 import '../data/local/hive_setup.dart';
 import '../data/local/task_progress.dart';
+import '../data/sync/remote_sync.dart';
 import 'masteries.dart';
 
 /// Returns the list of masteries that `childId` has earned right now,
@@ -59,20 +60,39 @@ DateTime? earnedAt(String childId, Mastery m) {
 bool isAlreadyEarned(String childId, Mastery m) =>
     earnedAt(childId, m) != null;
 
-Future<void> markEarned(String childId, Mastery m, {DateTime? at}) async {
-  final ts = (at ?? DateTime.now()).toIso8601String();
-  await HiveSetup.sessionBox.put(_earnedKey(childId, m.id), ts);
+/// Marks the mastery as earned on the server (idempotent — re-claiming an
+/// already-earned mastery is a noop) AND locally. The local sessionBox row
+/// is kept so [isAlreadyEarned] stays fast/synchronous.
+Future<void> markEarned(
+  String childId,
+  Mastery m, {
+  DateTime? at,
+  RemoteSync? sync,
+}) async {
+  final when = at ?? DateTime.now();
+  if (sync != null) {
+    await sync.claimMastery(
+      childClientId: childId,
+      masteryId: m.id,
+      earnedAt: when,
+    );
+  } else {
+    await HiveSetup.sessionBox.put(_earnedKey(childId, m.id), when.toIso8601String());
+  }
 }
 
 /// Evaluates which masteries are newly earned this moment — i.e. currently
 /// satisfied by progress AND not previously marked as earned. Used after a
 /// task completion to trigger the celebration certificate popup.
 ///
-/// Returns the newly-earned masteries and marks them as earned in storage.
+/// Returns the newly-earned masteries and marks them as earned both
+/// remotely (via [sync]) and locally. [sync] should always be passed when
+/// called from screens; it's nullable only to keep older tests building.
 Future<List<Mastery>> claimNewlyEarnedMasteries({
   required String childId,
   required bool isAdult,
   required Map<String, TaskProgress> progressBySlug,
+  RemoteSync? sync,
 }) async {
   final currently = earnedMasteries(
     childId: childId,
@@ -82,7 +102,7 @@ Future<List<Mastery>> claimNewlyEarnedMasteries({
   final newly = <Mastery>[];
   for (final m in currently) {
     if (!isAlreadyEarned(childId, m)) {
-      await markEarned(childId, m);
+      await markEarned(childId, m, sync: sync);
       newly.add(m);
     }
   }

@@ -24,8 +24,8 @@ SmartStep presents a curated ladder of real-life skills. You review each skill, 
 You are responsible for:
 - Deciding which skills are right for your child
 - Supervising your child during any skill practice, particularly those involving safety (roads, cooking, tools, travel, etc.)
-- Protecting the device on which SmartStep is installed (the child's data lives only here)
-- Keeping your parental consent current — if you no longer consent, log out to wipe all data
+- Keeping access to the phone number you signed up with — your SmartStep account is tied to it
+- Keeping your parental consent current — if you no longer consent, fully delete your account from Profile to wipe all data
 
 ## 4. Safety disclaimer
 
@@ -34,8 +34,8 @@ Any skill that may pose physical risk includes a *Safety* section with clear cau
 ## 5. Your child's data
 
 We handle your child's data as described in the Privacy Policy. In particular:
-- Your child's name, date of birth, sex and progress stay on your device only
-- Only anonymous aggregates are sent to our servers
+- Your child's profile, progress, custom tasks, custom rewards and earned achievements are stored in your SmartStep account on our servers, so they survive a reinstall or change of phone
+- Only anonymous aggregates of skill completions are kept separately for product improvement
 - You can export or delete the data at any time from Profile
 
 ## 6. Rewards
@@ -48,7 +48,7 @@ We work hard to keep skill content accurate and age-appropriate. If you find con
 
 ## 8. Account and sign-in
 
-Sign-in uses a phone number + OTP via Google Firebase. You are responsible for keeping access to that phone number. If you lose access, you can set up the app again on a new device; local data does not transfer.
+Sign-in uses a phone number + OTP. For Indian numbers (+91) the code is delivered on WhatsApp via our backend; other countries get an SMS via Google Firebase. You are responsible for keeping access to that phone number — it is the identifier of your SmartStep account. If you sign in with the same phone number on a new device, all your account data (children, progress, custom tasks, rewards, achievements) is restored automatically.
 
 ## 9. Changes
 

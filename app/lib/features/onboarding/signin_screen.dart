@@ -7,6 +7,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../data/api/client.dart';
 import '../../data/local/hive_setup.dart';
+import '../../data/sync/remote_sync.dart';
 
 /// Phone-OTP sign-in.
 ///
@@ -234,8 +235,22 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
     if (data['uid'] != null) {
       await HiveSetup.sessionBox.put('auth_uid', data['uid']);
     }
+    // Hydrate the local cache from server. If the user already has a
+    // profile on another device, they land straight on the dashboard;
+    // otherwise we send them through onboarding.
+    try {
+      await ref.read(remoteSyncProvider).bootstrap();
+    } on SyncException catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _busy = false;
+        _error = e.userMessage;
+      });
+      return;
+    }
     if (!mounted) return;
-    context.go('/onboarding/child');
+    final hasProfile = HiveSetup.childBox.isNotEmpty;
+    context.go(hasProfile ? '/dashboard' : '/onboarding/child');
   }
 
   // ── UI ───────────────────────────────────────────────────────────────────
@@ -353,7 +368,7 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
               ),
               const SizedBox(height: 12),
               Text(
-                'Your progress stays on this device. We use your phone only to identify your account.',
+                'Your progress is saved to your SmartStep account so you can pick up where you left off on any device.',
                 textAlign: TextAlign.center,
                 style: TextStyle(
                   fontSize: 12,

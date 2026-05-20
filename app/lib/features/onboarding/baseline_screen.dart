@@ -7,6 +7,7 @@ import '../../data/local/active_child.dart';
 import '../../data/local/child_profile.dart';
 import '../../data/local/hive_setup.dart';
 import '../../data/local/task_progress.dart';
+import '../../data/sync/remote_sync.dart';
 import '../../domain/adult_baseline.dart';
 import '../../domain/baseline.dart';
 
@@ -223,7 +224,10 @@ class _State extends ConsumerState<BaselineScreen> {
   Future<void> _skipToDashboard() async {
     if (widget.adding) {
       setActiveChild(
-          ref.read(activeChildIdProvider.notifier), widget.childId);
+        ref.read(activeChildIdProvider.notifier),
+        widget.childId,
+        ref: ref,
+      );
     }
     if (!mounted) return;
     context.go("/dashboard");
@@ -270,14 +274,13 @@ class _State extends ConsumerState<BaselineScreen> {
           for (final task in matching) {
             final key = TaskProgress.key(widget.childId, task.slug);
             if (HiveSetup.progressBox.get(key) != null) continue;
-            await HiveSetup.progressBox.put(
-              key,
-              TaskProgress(
-                taskSlug: task.slug,
-                childId: widget.childId,
-                status: ProgressStatus.bypassed,
-              ),
-            );
+            await ref.read(remoteSyncProvider).persistProgress(
+                  TaskProgress(
+                    taskSlug: task.slug,
+                    childId: widget.childId,
+                    status: ProgressStatus.bypassed,
+                  ),
+                );
           }
         }
       }
@@ -287,9 +290,16 @@ class _State extends ConsumerState<BaselineScreen> {
         setActiveChild(
           ref.read(activeChildIdProvider.notifier),
           widget.childId,
+          ref: ref,
         );
       }
       context.go("/dashboard");
+    } on SyncException catch (e) {
+      if (!mounted) return;
+      setState(() => _submitting = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(e.userMessage)),
+      );
     } catch (e) {
       if (!mounted) return;
       setState(() => _submitting = false);

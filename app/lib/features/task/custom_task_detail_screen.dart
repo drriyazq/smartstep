@@ -9,6 +9,7 @@ import '../../data/local/active_child.dart';
 import '../../data/local/custom_task.dart';
 import '../../data/local/hive_setup.dart';
 import '../../data/local/task_progress.dart';
+import '../../data/sync/remote_sync.dart';
 import '../../providers.dart';
 import 'reward_picker_sheet.dart';
 
@@ -94,19 +95,27 @@ class CustomTaskDetailScreen extends ConsumerWidget {
     );
     if (reward == null) return;
 
-    final key = TaskProgress.key(childId, task.progressSlug);
-    await HiveSetup.progressBox.put(
-      key,
-      TaskProgress(
-        taskSlug: task.progressSlug,
-        childId: childId,
-        status: ProgressStatus.completed,
-        completedAt: DateTime.now(),
-      ),
-    );
-
-    final rewardKey = 'reward::$childId::${task.progressSlug}';
-    await HiveSetup.sessionBox.put(rewardKey, reward);
+    try {
+      await ref.read(remoteSyncProvider).persistProgress(
+            TaskProgress(
+              taskSlug: task.progressSlug,
+              childId: childId,
+              status: ProgressStatus.completed,
+              completedAt: DateTime.now(),
+            ),
+            repetitionsDone: 1,
+            rewardTitle: reward,
+          );
+      final rewardKey = 'reward::$childId::${task.progressSlug}';
+      await HiveSetup.sessionBox.put(rewardKey, reward);
+    } on SyncException catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(e.userMessage)),
+        );
+      }
+      return;
+    }
 
     ref.read(progressVersionProvider.notifier).state++;
 
@@ -140,6 +149,20 @@ class CustomTaskDetailScreen extends ConsumerWidget {
     CustomTask task,
     String childId,
   ) async {
+    try {
+      await ref.read(remoteSyncProvider).persistProgress(
+            TaskProgress(
+              taskSlug: task.progressSlug,
+              childId: childId,
+              status: ProgressStatus.unlocked,
+            ),
+            repetitionsDone: 0,
+            rewardTitle: '',
+          );
+    } on SyncException {
+      // Best-effort: still flush the local cache so the UI reflects the
+      // intent immediately. Next bootstrap will reconcile.
+    }
     final key = TaskProgress.key(childId, task.progressSlug);
     await HiveSetup.progressBox.delete(key);
     await HiveSetup.sessionBox.delete('reward::$childId::${task.progressSlug}');

@@ -24,7 +24,10 @@ class _ConsentScreenState extends State<ConsentScreen> {
   bool get _canContinue => _isGuardian && _agreesToPolicy;
 
   Future<void> _accept() async {
-    await HiveSetup.sessionBox.put('consent_given', '1');
+    // Bool, not '1' — RemoteSync.persistProfile reads the value back later
+    // to seed Profile.consent_given on the server, and a bool comparison is
+    // less brittle than truthy-string parsing.
+    await HiveSetup.sessionBox.put('consent_given', true);
     await HiveSetup.sessionBox.put(
       'consent_ts',
       DateTime.now().toIso8601String(),

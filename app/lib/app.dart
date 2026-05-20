@@ -3,6 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import 'data/local/hive_setup.dart';
+import 'data/sync/remote_sync.dart';
+import 'providers.dart';
 import 'features/ladder/category_ladder_screen.dart';
 import 'features/ladder/dashboard_screen.dart';
 import 'features/legal/privacy_policy_screen.dart';
@@ -25,7 +27,9 @@ final _router = GoRouter(
     // Legal screens are always reachable (from onboarding + profile)
     if (path.startsWith('/legal/')) return null;
 
-    final consentGiven = HiveSetup.sessionBox.get('consent_given') == '1';
+    // Older builds wrote '1' (string); current builds write bool. Accept both.
+    final consentRaw = HiveSetup.sessionBox.get('consent_given');
+    final consentGiven = consentRaw == true || consentRaw == '1';
     final hasProfile = HiveSetup.childBox.isNotEmpty;
     final onConsent = path == '/consent';
     final onboardingPath =
@@ -92,11 +96,43 @@ final _router = GoRouter(
   ],
 );
 
-class SmartStepApp extends ConsumerWidget {
+class SmartStepApp extends ConsumerStatefulWidget {
   const SmartStepApp({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<SmartStepApp> createState() => _SmartStepAppState();
+}
+
+class _SmartStepAppState extends ConsumerState<SmartStepApp> {
+  @override
+  void initState() {
+    super.initState();
+    // Re-hydrate the local cache from the server on every cold start that
+    // already has a JWT. Don't block first frame — the router renders from
+    // the existing Hive state; once the bootstrap finishes any open screen
+    // sees the refreshed data via the next progressVersion bump.
+    //
+    // We intentionally swallow errors here: if the user is offline at boot
+    // they should still get the cached UI, and the next write attempt is
+    // what surfaces the "online required" snackbar.
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      final hasToken =
+          (HiveSetup.sessionBox.get('access_token') as String?)?.isNotEmpty ??
+              false;
+      if (!hasToken) return;
+      try {
+        await ref.read(remoteSyncProvider).bootstrap();
+        if (!mounted) return;
+        // Rebuild any screen that's watching progressVersionProvider.
+        ref.read(progressVersionProvider.notifier).state++;
+      } catch (_) {
+        // Offline / token expired — caller-side flows handle UX.
+      }
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
     return MaterialApp.router(
       title: "SmartStep",
       theme: ThemeData(
